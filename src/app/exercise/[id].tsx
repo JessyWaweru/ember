@@ -75,16 +75,16 @@ export default function ExerciseDetail() {
       ) : null}
 
       <SectionHeader title={`History (${logs.length})`} />
-        {showExtremes ? (
-          <Row gap={Space.md}>
-            <ExtremeCard label="Best session" session={best} />
-            <ExtremeCard label="Lowest session" session={lowest} />
-          </Row>
-        ) : null}
-        {logs.map((w) => {
-          const own = ownRank.get(w.id);
-          const tag = showExtremes ? (w.id === best.log.id ? 'Best' : w.id === lowest.log.id ? 'Lowest' : null) : null;
-          return (
+      {showExtremes ? (
+        <Row gap={Space.md}>
+          <ExtremeCard label="Best session" session={best} />
+          <ExtremeCard label="Lowest session" session={lowest} />
+        </Row>
+      ) : null}
+      {logs.map((w) => {
+        const own = ownRank.get(w.id);
+        const tag = showExtremes ? (w.id === best.log.id ? 'Best' : w.id === lowest.log.id ? 'Lowest' : null) : null;
+        return (
           <Card
             key={w.id}
             style={{ padding: Space.md }}
@@ -98,16 +98,16 @@ export default function ExerciseDetail() {
               {own ? <RankBadge tier={own.tier} size={22} /> : null}
               <View style={{ flex: 1, gap: 2 }}>
                 <Row gap={Space.sm}>
-                <Txt style={{ fontWeight: '600', flexShrink: 1 }} numberOfLines={1}>{describeWorkout(exercise.kind, w)}</Txt>
-                {tag ? <Tag label={tag} /> : null}
-              </Row>
-              <Txt variant="caption" color={C.textDim}>
-                {own ? `${own.title} · ` : ''}{prettyDay(w.log_date)}{w.notes ? ` · ${w.notes}` : ''}
-              </Txt>
-            </View>
-            <Txt color={C.burn} style={{ fontWeight: '700' }}>{`${w.calories_burned} kcal`}</Txt>
-          </Row>
-        </Card>
+                  <Txt style={{ fontWeight: '600', flexShrink: 1 }} numberOfLines={1}>{describeWorkout(exercise.kind, w)}</Txt>
+                  {tag ? <Tag label={tag} /> : null}
+                </Row>
+                <Txt variant="caption" color={C.textDim}>
+                  {own ? `${own.title} · ` : ''}{prettyDay(w.log_date)}{w.notes ? ` · ${w.notes}` : ''}
+                </Txt>
+              </View>
+              <Txt color={C.burn} style={{ fontWeight: '700' }}>{`${w.calories_burned} kcal`}</Txt>
+            </Row>
+          </Card>
         );
       })}
       {logs.length ? <Txt variant="caption" color={C.textFaint}>Tap a session to delete it.</Txt> : null}
