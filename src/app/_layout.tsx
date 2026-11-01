@@ -47,6 +47,11 @@ function RootStack() {
     if (!loading) SplashScreen.hideAsync();
   }, [loading]);
 
+  // Web: React is running, so the HTML pre-loader (+html.tsx) hands over to EmberLoader, which looks the same.
+  useEffect(() => {
+    if (Platform.OS === 'web') document.getElementById('boot')?.remove();
+  }, []);
+
   // Drop cached data on sign-out / account switch, so nothing leaks between accounts.
   // Only when a previous user existed: clearing on first sign-in would orphan the initial queries.
   const prevUserId = useRef(userId);
