@@ -4,7 +4,7 @@ import { View } from 'react-native';
 
 import { DaySwitcher } from '@/components/day-switcher';
 import { MealRow } from '@/components/meal-row';
-import { Button, Card, Icon, Ring, Row, Screen, Txt } from '@/components/ui';
+import { Button, Card, Icon, PageHeader, Ring, Row, Screen, Txt } from '@/components/ui';
 import { C, Space } from '@/constants/theme';
 import { useMeals, useProfile, useWorkouts } from '@/lib/data';
 import { MEAL_TYPES } from '@/lib/catalog';
@@ -27,6 +27,15 @@ function MacroRing({ label, value, goal, color }: { label: string; value: number
   );
 }
 
+function greeting() {
+  const h = new Date().getHours();
+  if (h < 5) return 'Late one. Choose wisely.';
+  if (h < 12) return 'Morning. Fuel up right.';
+  if (h < 17) return 'Afternoon. Stay on track.';
+  if (h < 22) return 'Evening. Close the day strong.';
+  return 'Late one. Choose wisely.';
+}
+
 export default function Today() {
   const [date, setDate] = useState(todayKey());
   const profile = useProfile().data!;
@@ -41,6 +50,7 @@ export default function Today() {
 
   return (
     <Screen tabs>
+      <PageHeader kicker="FUEL · BURN" title="Today" tagline={greeting()} color={C.accent} />
       <DaySwitcher date={date} onChange={setDate} />
 
       <Card style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: Space.xl }}>

@@ -7,7 +7,7 @@ import { Button, Card, Chip, Field, IconButton, Row, Screen, Segmented, SheetHea
 import { C, Space } from '@/constants/theme';
 import { useHabits, useSaveHabit } from '@/lib/data';
 import { WEEKDAY_LETTERS } from '@/lib/dates';
-import { HABIT_COLORS, HABIT_EMOJIS, HABIT_TEMPLATES, SECTIONS } from '@/lib/habits';
+import { AUTO_OPTIONS, HABIT_COLORS, HABIT_EMOJIS, HABIT_TEMPLATES, SECTIONS } from '@/lib/habits';
 import type { HabitKind, HabitSection, NewHabit } from '@/lib/types';
 
 const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
@@ -19,8 +19,8 @@ export default function HabitEdit() {
 
   const [form, setForm] = useState<NewHabit>(
     existing
-      ? { name: existing.name, emoji: existing.emoji, color: existing.color, days: existing.days, target_count: existing.target_count, kind: existing.kind, section: existing.section }
-      : { name: '', emoji: '✅', color: HABIT_COLORS[1], days: ALL_DAYS, target_count: 1, kind: 'good', section: 'anytime' }
+      ? { name: existing.name, emoji: existing.emoji, color: existing.color, days: existing.days, target_count: existing.target_count, kind: existing.kind, section: existing.section, auto: existing.auto ?? null }
+      : { name: '', emoji: '✅', color: HABIT_COLORS[1], days: ALL_DAYS, target_count: 1, kind: 'good', section: 'anytime', auto: null }
   );
   const [showTemplates, setShowTemplates] = useState(!existing);
   const set = <K extends keyof NewHabit>(k: K, v: NewHabit[K]) => setForm((f) => ({ ...f, [k]: v }));
@@ -29,7 +29,9 @@ export default function HabitEdit() {
     if (!form.name.trim()) return dialog('Give your habit a name');
     if (form.days.length === 0) return dialog('Pick at least one day');
     try {
-      await save.mutateAsync({ ...form, name: form.name.trim(), emoji: form.emoji || '✅', id: existing?.id });
+      // Only send `auto` when it's on or being switched off.
+      const auto = form.auto ?? (existing?.auto ? null : undefined);
+      await save.mutateAsync({ ...form, auto, name: form.name.trim(), emoji: form.emoji || '✅', id: existing?.id });
       router.back();
     } catch (e) {
       dialog('Could not save', (e as Error).message);
@@ -52,7 +54,7 @@ export default function HabitEdit() {
                 key={t.name}
                 label={`${t.emoji} ${t.name}`}
                 onPress={() => {
-                  setForm((f) => ({ ...f, ...t, color: t.color ?? f.color }));
+                  setForm((f) => ({ ...f, ...t, color: t.color ?? f.color, auto: t.auto ?? null }));
                   setShowTemplates(false);
                 }}
               />
@@ -78,14 +80,36 @@ export default function HabitEdit() {
       <Card style={{ gap: Space.md }}>
         <Field label="Name" placeholder="e.g. Walk after dinner" value={form.name} onChangeText={(v) => set('name', v)} />
 
-        <Txt variant="caption" color={C.textDim}>Type</Txt>
-        <Segmented<HabitKind>
-          value={form.kind}
-          onChange={(v) => set('kind', v)}
-          color={form.color}
-          options={[{ value: 'good', label: '✅ Build' }, { value: 'bad', label: '🛡️ Quit' }]}
-        />
-        {form.kind === 'bad' ? (
+        <Txt variant="caption" color={C.textDim}>Track automatically</Txt>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Space.sm }}>
+          <Chip label="Off — I check it off" active={!form.auto} color={form.color} onPress={() => set('auto', null)} />
+          {AUTO_OPTIONS.map((o) => (
+            <Chip
+              key={o.value}
+              label={`⚡ ${o.label}`}
+              active={form.auto === o.value}
+              color={form.color}
+              onPress={() => setForm((f) => ({ ...f, auto: o.value, kind: o.kind, target_count: 1 }))}
+            />
+          ))}
+        </View>
+        {form.auto ? (
+          <Txt variant="caption" color={C.textFaint}>{AUTO_OPTIONS.find((o) => o.value === form.auto)!.detail}</Txt>
+        ) : null}
+
+        {/* Auto habits set their own type. */}
+        {!form.auto ? (
+          <>
+            <Txt variant="caption" color={C.textDim}>Type</Txt>
+            <Segmented<HabitKind>
+              value={form.kind}
+              onChange={(v) => set('kind', v)}
+              color={form.color}
+              options={[{ value: 'good', label: '✅ Build' }, { value: 'bad', label: '🛡️ Quit' }]}
+            />
+          </>
+        ) : null}
+        {form.auto ? null : form.kind === 'bad' ? (
           <Txt variant="caption" color={C.textFaint}>Every day counts as clean unless you log a slip.</Txt>
         ) : (
           <Row style={{ justifyContent: 'space-between' }}>

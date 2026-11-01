@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react';
 import { View } from 'react-native';
 
 import { RankBadge } from '@/components/rank-badge';
-import { Bar, Button, Card, Row, Screen, SectionHeader, Txt } from '@/components/ui';
+import { Bar, Button, Card, PageHeader, Row, Screen, SectionHeader, Txt } from '@/components/ui';
 import { C, Space } from '@/constants/theme';
 import { STARTER_EXERCISES } from '@/lib/catalog';
 import { useCreateExercise, useExercises } from '@/lib/data';
@@ -39,7 +39,7 @@ export default function Train() {
 
   return (
     <Screen tabs>
-      <Txt variant="title">Train</Txt>
+      <PageHeader kicker="RANK UP" title="Train" tagline="Log the work. Climb the ladder." color={C.burn} />
 
       <Card style={{ flexDirection: 'row', alignItems: 'center', gap: Space.xl, padding: Space.xl }}>
         <RankBadge tier={overall.tier} size={72} />

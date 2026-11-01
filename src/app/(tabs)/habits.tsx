@@ -2,18 +2,19 @@ import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 
+import { dialog } from '@/components/dialog';
 import { HabitCard } from '@/components/habit-card';
-import { Button, Empty, IconButton, Ring, Row, Screen, Txt } from '@/components/ui';
+import { PauseBanner } from '@/components/pause-banner';
+import { Button, Empty, IconButton, PageHeader, Ring, Row, Screen, Txt } from '@/components/ui';
 import { C, Space } from '@/constants/theme';
-import { useHabitLogs, useHabits } from '@/lib/data';
 import { addDays, fromDateKey, prettyDay, todayKey, WEEKDAY_LETTERS, weekday } from '@/lib/dates';
-import { dayStatus, logsByDate, perfectDayStreak, SECTIONS } from '@/lib/habits';
+import { currentPauses, dayStatus, logsByDate, perfectDayStreak, SECTIONS } from '@/lib/habits';
+import { useHabitData } from '@/lib/use-habit-data';
 
 export default function Habits() {
   const today = todayKey();
   const [date, setDate] = useState(today);
-  const { data: habits = [], isPending } = useHabits();
-  const { data: logs = [] } = useHabitLogs();
+  const { habits, logs, pauses, pausesReady, isPending } = useHabitData();
 
   const maps = useMemo(() => new Map(habits.map((h) => [h.id, logsByDate(h.id, logs)])), [habits, logs]);
   const perfect = useMemo(() => perfectDayStreak(habits, logs), [habits, logs]);
@@ -33,16 +34,21 @@ export default function Habits() {
 
   return (
     <Screen tabs>
-      <Row style={{ justifyContent: 'space-between' }}>
-        <Txt variant="title">Habits</Txt>
-        <Row gap={Space.md}>
-          <View style={{ alignItems: 'flex-end' }}>
-            <Txt variant="label" color={C.accent}>{`🔥 ${perfect}`}</Txt>
-            <Txt variant="caption" color={C.textDim} style={{ fontSize: 11 }}>perfect days</Txt>
-          </View>
-          <IconButton icon="plus" bg={C.habit} color="#0B0B0D" onPress={() => router.push('/habit-edit')} />
-        </Row>
-      </Row>
+      <PageHeader
+        kicker="BUILD · BREAK"
+        title="Habits"
+        tagline={perfect > 0 ? `🔥 ${perfect} perfect day${perfect === 1 ? '' : 's'} in a row. Keep it lit.` : 'Small wins, stacked daily.'}
+        color={C.habit}
+        right={
+          <>
+            <IconButton icon="chart" onPress={() => router.push('/habits-stats')} />
+            <IconButton icon="list" onPress={() => router.push('/habits-manage')} />
+            <IconButton icon="plus" bg={C.habit} color="#0B0B0D" onPress={() => router.push('/habit-edit')} />
+          </>
+        }
+      />
+
+      <PauseBanner pauses={currentPauses(pauses)} habits={habits} />
 
       {/* week strip */}
       <Row style={{ justifyContent: 'space-between' }}>
@@ -95,9 +101,20 @@ export default function Habits() {
 
       {habits.length > 0 && todays.length === 0 ? <Txt color={C.textDim}>Nothing scheduled for this day. Rest up.</Txt> : null}
       {habits.length > 0 ? (
-        <Txt variant="caption" color={C.textFaint} style={{ textAlign: 'center' }}>
-          Tap ✓ to complete · tap a card for stats · long-press to skip
-        </Txt>
+        <>
+          <Button
+            title="⏸  Take a rest day / pause habits"
+            variant="secondary"
+            onPress={() =>
+              pausesReady
+                ? router.push('/habit-pause')
+                : dialog('One-time setup needed', 'Run supabase/updates/001-habit-auto-and-pauses.sql in the Supabase SQL Editor, then try again.')
+            }
+          />
+          <Txt variant="caption" color={C.textFaint} style={{ textAlign: 'center' }}>
+            Tap ✓ to complete · tap a card for stats · long-press to skip
+          </Txt>
+        </>
       ) : null}
     </Screen>
   );

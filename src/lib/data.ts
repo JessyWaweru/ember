@@ -9,8 +9,10 @@ import type {
   Habit,
   HabitLog,
   HabitLogStatus,
+  HabitPause,
   Meal,
   NewHabit,
+  NewHabitPause,
   NewMeal,
   NewWorkoutLog,
   Profile,
@@ -192,6 +194,81 @@ export function useHabits() {
       unwrap<Habit[]>(
         supabase.from('habits').select('*').eq('archived', false).order('sort_order').order('created_at')
       ),
+  });
+}
+
+/** Active and archived habits, for the manage screen. */
+export function useAllHabits() {
+  return useQuery({
+    queryKey: ['habits', 'all'],
+    queryFn: () => unwrap<Habit[]>(supabase.from('habits').select('*').order('sort_order').order('created_at')),
+  });
+}
+
+export function useRestoreHabit() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => unwrap(supabase.from('habits').update({ archived: false }).eq('id', id)),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['habits'] }),
+  });
+}
+
+/** Deletes a habit and its whole history. */
+export function useDeleteHabit() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => unwrap(supabase.from('habits').delete().eq('id', id)),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['habits'] });
+      qc.invalidateQueries({ queryKey: ['habit_logs'] });
+      qc.invalidateQueries({ queryKey: ['habit_pauses'] });
+    },
+  });
+}
+
+export function useHabitPauses() {
+  return useQuery({
+    queryKey: ['habit_pauses'],
+    queryFn: () => unwrap<HabitPause[]>(supabase.from('habit_pauses').select('*').order('start_date', { ascending: false })),
+  });
+}
+
+export function useAddPauses() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (pauses: NewHabitPause[]) => unwrap(supabase.from('habit_pauses').insert(pauses)),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['habit_pauses'] }),
+  });
+}
+
+/** Resume: a pause that hasn't started is removed; a running one ends yesterday, so today counts again. */
+export function useEndPause() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (pause: HabitPause) => {
+      const today = todayKey();
+      return pause.start_date >= today
+        ? unwrap(supabase.from('habit_pauses').delete().eq('id', pause.id))
+        : unwrap(supabase.from('habit_pauses').update({ end_date: addDays(today, -1) }).eq('id', pause.id));
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['habit_pauses'] }),
+  });
+}
+
+/** Calories eaten per day since `start`, paged past Supabase's 1000-row limit. Feeds the calorie-cap habit. */
+export function useDailyCalories(start: string) {
+  return useQuery({
+    queryKey: ['meals', 'daily', start],
+    queryFn: async () => {
+      const totals = new Map<string, number>();
+      for (let from = 0; ; from += 1000) {
+        const rows = await unwrap<Pick<Meal, 'log_date' | 'calories'>[]>(
+          supabase.from('meals').select('log_date, calories').gte('log_date', start).order('log_date').range(from, from + 999)
+        );
+        for (const r of rows) totals.set(r.log_date, (totals.get(r.log_date) ?? 0) + r.calories);
+        if (rows.length < 1000) return totals;
+      }
+    },
   });
 }
 

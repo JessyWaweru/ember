@@ -5,7 +5,7 @@ import { dialog } from '@/components/dialog';
 import { C, Radius, Space } from '@/constants/theme';
 import { useSetHabitLog } from '@/lib/data';
 import { addDays, prettyDay, WEEKDAY_LETTERS, weekday } from '@/lib/dates';
-import { dayStatus, habitStats, type DayStatus } from '@/lib/habits';
+import { autoLabel, dayStatus, habitStats, type DayStatus } from '@/lib/habits';
 import type { Habit, HabitLog } from '@/lib/types';
 
 import { Icon, Ring, Row, tap, Txt } from './ui';
@@ -23,8 +23,20 @@ export function HabitCard({ habit, logs, date }: { habit: Habit; logs: Map<strin
   const counted = habit.kind === 'good' && habit.target_count > 1;
   const base = { habit_id: habit.id, log_date: date };
 
+  const pause = log?.pause;
+
   function press() {
     tap();
+    if (pause) return dialog(`${habit.name} is paused`, `${pause.reason}. Paused days never break your streak.`);
+    // Auto habits are ticked by what you log; a manual skip can still be undone.
+    if (habit.auto && status !== 'skipped') {
+      return habit.auto === 'calorie_cap'
+        ? dialog(habit.name, 'Tracked from your food log: a day over your calorie budget (goal + burned) counts as a slip.')
+        : dialog(habit.name, `Ticks itself off when you log ${habit.auto === 'cardio' ? 'a cardio' : 'a weights or bodyweight'} workout.`, [
+            { text: 'Not now', style: 'cancel' },
+            { text: 'Log workout', onPress: () => router.push({ pathname: '/log-workout', params: { date } }) },
+          ]);
+    }
     if (status === 'skipped') return setLog.mutate({ ...base, clear: true });
     if (habit.kind === 'bad') {
       if (status === 'failed') return setLog.mutate({ ...base, clear: true });
@@ -39,6 +51,7 @@ export function HabitCard({ habit, logs, date }: { habit: Habit; logs: Map<strin
 
   function menu() {
     tap();
+    if (pause) return press();
     dialog(habit.name, prettyDay(date), [
       status === 'skipped'
         ? { text: 'Unskip', onPress: () => setLog.mutate({ ...base, clear: true }) }
@@ -63,7 +76,7 @@ export function HabitCard({ habit, logs, date }: { habit: Habit; logs: Map<strin
         padding: Space.md,
         borderWidth: 1,
         borderColor: done ? habit.color + '55' : C.border,
-        opacity: pressed ? 0.85 : status === 'skipped' ? 0.6 : 1,
+        opacity: pressed ? 0.85 : status === 'skipped' ? (pause ? 0.8 : 0.6) : 1,
       })}>
       <Row gap={Space.md}>
         <View
@@ -82,8 +95,12 @@ export function HabitCard({ habit, logs, date }: { habit: Habit; logs: Map<strin
             {stats.current > 0 ? <Txt variant="caption" color={C.accent} style={{ fontWeight: '700' }}>{`🔥 ${stats.current}`}</Txt> : null}
             {counted ? <Txt variant="caption" color={C.textDim}>{`${count}/${habit.target_count}`}</Txt> : null}
             {habit.kind === 'bad' ? <Txt variant="caption" color={C.textDim}>{status === 'failed' ? 'Slipped' : 'Clean'}</Txt> : null}
-            {status === 'skipped' ? <Txt variant="caption" color={C.textDim}>Skipped</Txt> : null}
+            {status === 'skipped' && !pause ? <Txt variant="caption" color={C.textDim}>Skipped</Txt> : null}
+            {habit.auto && !pause ? <Txt variant="caption" color={C.textFaint}>{`⚡ Auto · ${autoLabel(habit.auto).toLowerCase()}`}</Txt> : null}
           </Row>
+          {pause ? (
+            <Txt variant="caption" color={C.carbs} numberOfLines={1} style={{ fontWeight: '700' }}>{`⏸ Paused · ${pause.reason}`}</Txt>
+          ) : null}
           <Row gap={3}>
             {last7.map((d) => {
               const s = dayStatus(habit, logs.get(d), d);
@@ -111,7 +128,9 @@ export function HabitCard({ habit, logs, date }: { habit: Habit; logs: Map<strin
                 borderColor: C.border,
                 alignItems: 'center', justifyContent: 'center',
               }}>
-              {habit.kind === 'bad' ? (
+              {pause ? (
+                <Icon name="pause" size={18} color={C.carbs} />
+              ) : habit.kind === 'bad' ? (
                 <Txt style={{ fontSize: 18 }}>{status === 'failed' ? '✗' : '🛡️'}</Txt>
               ) : (
                 <Icon name="check" size={20} color={done ? '#0B0B0D' : C.textFaint} />

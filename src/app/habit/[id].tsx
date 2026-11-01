@@ -6,10 +6,12 @@ import { dialog } from '@/components/dialog';
 import { statusColor } from '@/components/habit-card';
 import { Button, Card, IconButton, Loading, Row, Screen, SectionHeader, Txt } from '@/components/ui';
 import { C, Space } from '@/constants/theme';
-import { useArchiveHabit, useHabitLogs, useHabits, useSetHabitLog } from '@/lib/data';
+import { pauseSpan } from '@/components/pause-banner';
+import { useArchiveHabit, useSetHabitLog } from '@/lib/data';
 import { addDays, fromDateKey, toDateKey, todayKey, WEEKDAY_LETTERS } from '@/lib/dates';
-import { dayStatus, habitStats, logsByDate, MILESTONES } from '@/lib/habits';
+import { autoLabel, dayStatus, habitStats, logsByDate, MILESTONES } from '@/lib/habits';
 import type { Habit, HabitLog } from '@/lib/types';
+import { useHabitData } from '@/lib/use-habit-data';
 
 function Stat({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
@@ -32,9 +34,12 @@ function MonthCalendar({ habit, logs }: { habit: Habit; logs: Map<string, HabitL
     ...Array.from({ length: daysInMonth }, (_, i) => toDateKey(new Date(first.getFullYear(), first.getMonth(), i + 1))),
   ];
 
-  // Tapping a past day backfills it — handy when you forgot to check in.
+  // Tapping a past day backfills it — handy when you forgot to check in. Auto and paused days fill themselves.
   function toggle(key: string) {
     if (key > today) return;
+    const pause = logs.get(key)?.pause;
+    if (pause) return dialog('Paused', `${pause.reason} · ${pauseSpan(pause)}`);
+    if (habit.auto) return dialog(habit.name, `Tracked automatically (${autoLabel(habit.auto).toLowerCase()}).`);
     const s = dayStatus(habit, logs.get(key), key);
     const base = { habit_id: habit.id, log_date: key };
     if (habit.kind === 'bad') {
@@ -68,7 +73,7 @@ function MonthCalendar({ habit, logs }: { habit: Habit; logs: Map<string, HabitL
                   borderWidth: key === today ? 1.5 : 0, borderColor: C.text,
                 }}>
                 <Txt variant="caption" color={filled ? '#0B0B0D' : s === 'off' ? C.textFaint : C.textDim} style={{ fontWeight: '700' }}>
-                  {s === 'skipped' ? '–' : String(fromDateKey(key).getDate())}
+                  {logs.get(key)?.pause ? '⏸' : s === 'skipped' ? '–' : String(fromDateKey(key).getDate())}
                 </Txt>
               </View>
             </Pressable>
@@ -76,7 +81,11 @@ function MonthCalendar({ habit, logs }: { habit: Habit; logs: Map<string, HabitL
         })}
       </View>
       <Txt variant="caption" color={C.textFaint}>
-        {habit.kind === 'bad' ? 'Tap a day to log or remove a slip.' : 'Tap a past day to mark it done or undo it.'}
+        {habit.auto
+          ? 'Filled in automatically. ⏸ = paused, – = skipped.'
+          : habit.kind === 'bad'
+            ? 'Tap a day to log or remove a slip. ⏸ = paused.'
+            : 'Tap a past day to mark it done or undo it. ⏸ = paused.'}
       </Txt>
     </Card>
   );
@@ -122,10 +131,10 @@ function YearHeatmap({ habit, logs }: { habit: Habit; logs: Map<string, HabitLog
 
 export default function HabitDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { data: habits, isPending } = useHabits();
-  const { data: allLogs = [] } = useHabitLogs();
+  const { habits, logs: allLogs, pauses: allPauses, pausesReady, isPending } = useHabitData();
   const archive = useArchiveHabit();
-  const habit = habits?.find((h) => h.id === id);
+  const habit = habits.find((h) => h.id === id);
+  const pauses = allPauses.filter((p) => p.habit_id === null || p.habit_id === id);
   const logs = useMemo(() => logsByDate(id, allLogs), [id, allLogs]);
 
   if (isPending) return <Loading />;
@@ -140,7 +149,7 @@ export default function HabitDetail() {
         </View>
         <Txt variant="title">{habit.name}</Txt>
         <Txt color={C.textDim}>
-          {habit.kind === 'bad' ? 'Quitting' : habit.target_count > 1 ? `${habit.target_count}× per day` : 'Daily habit'}
+          {habit.auto ? `⚡ ${autoLabel(habit.auto)}` : habit.kind === 'bad' ? 'Quitting' : habit.target_count > 1 ? `${habit.target_count}× per day` : 'Daily habit'}
           {habit.days.length === 7 ? ' · every day' : ` · ${habit.days.map((d) => WEEKDAY_LETTERS[d]).join(' ')}`}
         </Txt>
       </View>
@@ -179,6 +188,23 @@ export default function HabitDetail() {
       <SectionHeader title="Year" />
       <YearHeatmap habit={habit} logs={logs} />
 
+      <SectionHeader title={`Pauses (${pauses.length})`} />
+      {pauses.length === 0 ? <Txt color={C.textDim}>No breaks taken. Pause this habit for rest days, illness or travel; paused days never break your streak.</Txt> : null}
+      {pauses.map((p) => (
+        <Card key={p.id} style={{ padding: Space.md, gap: 2 }}>
+          <Txt style={{ fontWeight: '700' }}>{`⏸  “${p.reason}”`}</Txt>
+          <Txt variant="caption" color={C.textDim}>{`${pauseSpan(p)}${p.habit_id === null ? ' · all habits' : ''}`}</Txt>
+        </Card>
+      ))}
+      <Button
+        title="⏸  Pause this habit"
+        variant="secondary"
+        onPress={() =>
+          pausesReady
+            ? router.push({ pathname: '/habit-pause', params: { habitId: habit.id } })
+            : dialog('One-time setup needed', 'Run supabase/updates/001-habit-auto-and-pauses.sql in the Supabase SQL Editor, then try again.')
+        }
+      />
       <Button title="Edit habit" variant="secondary" onPress={() => router.push({ pathname: '/habit-edit', params: { id: habit.id } })} />
       <Button
         title="Archive habit"

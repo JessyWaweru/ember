@@ -101,10 +101,14 @@ create table if not exists public.habits (
   -- good: check it off · bad: clean by default, you log a slip
   kind         text not null default 'good' check (kind in ('good', 'bad')),
   section      text not null default 'anytime' check (section in ('morning', 'afternoon', 'evening', 'anytime')),
+  -- ticks itself off: calorie_cap (quit: over budget = slip), cardio / strength (any such workout that day)
+  auto         text check (auto in ('calorie_cap', 'cardio', 'strength')),
   archived     boolean not null default false,
   sort_order   int not null default 0,
   created_at   timestamptz not null default now()
 );
+-- for databases created before auto habits existed
+alter table public.habits add column if not exists auto text check (auto in ('calorie_cap', 'cardio', 'strength'));
 
 create table if not exists public.habit_logs (
   id         uuid primary key default gen_random_uuid(),
@@ -119,6 +123,18 @@ create table if not exists public.habit_logs (
 );
 create index if not exists habit_logs_user_date on public.habit_logs (user_id, log_date);
 
+-- Pauses: rest days / breaks for some or all habits, always with a reason. Paused days don't break streaks.
+create table if not exists public.habit_pauses (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  habit_id   uuid references public.habits(id) on delete cascade, -- null = every habit
+  start_date date not null,
+  end_date   date,                                                 -- inclusive; null = until you resume
+  reason     text not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists habit_pauses_user on public.habit_pauses (user_id, start_date);
+
 -- ───────────────────────── row level security ─────────────────────────
 -- Every user can only see and change their own rows.
 alter table public.profiles     enable row level security;
@@ -128,6 +144,7 @@ alter table public.exercises    enable row level security;
 alter table public.workout_logs enable row level security;
 alter table public.habits       enable row level security;
 alter table public.habit_logs   enable row level security;
+alter table public.habit_pauses enable row level security;
 
 drop policy if exists "own profile" on public.profiles;
 create policy "own profile" on public.profiles
@@ -136,7 +153,7 @@ create policy "own profile" on public.profiles
 do $$
 declare t text;
 begin
-  foreach t in array array['meals', 'weight_logs', 'exercises', 'workout_logs', 'habits', 'habit_logs'] loop
+  foreach t in array array['meals', 'weight_logs', 'exercises', 'workout_logs', 'habits', 'habit_logs', 'habit_pauses'] loop
     execute format('drop policy if exists "own rows" on public.%I', t);
     execute format(
       'create policy "own rows" on public.%I for all using (user_id = auth.uid()) with check (user_id = auth.uid())', t);

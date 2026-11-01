@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Share, View } from 'react-native';
 
 import { dialog } from '@/components/dialog';
-import { Button, Card, Icon, Row, Screen, Txt } from '@/components/ui';
+import { Button, Card, Icon, PageHeader, Row, Screen, Txt } from '@/components/ui';
 import { C, Space } from '@/constants/theme';
 import { useAuth } from '@/lib/auth';
 import { useProfile } from '@/lib/data';
@@ -44,7 +44,7 @@ export default function Me() {
 
   return (
     <Screen tabs>
-      <Txt variant="title">Me</Txt>
+      <PageHeader kicker="YOU" title="Me" tagline="Goals, weight and settings." color={C.protein} />
       <Card style={{ gap: 2 }}>
         <Txt variant="heading">{profile.display_name ?? 'You'}</Txt>
         <Txt color={C.textDim}>{session?.user.email}</Txt>

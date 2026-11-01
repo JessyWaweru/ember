@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { MealRow } from '@/components/meal-row';
-import { Button, Card, Row, Screen, Segmented, Txt } from '@/components/ui';
+import { Button, Card, PageHeader, Row, Screen, Segmented, Txt } from '@/components/ui';
 import { C, Space } from '@/constants/theme';
 import { useMealsRange, useProfile, useWeights, useWorkouts } from '@/lib/data';
 import { addDays, dateRange, fromDateKey, prettyDay, todayKey } from '@/lib/dates';
@@ -92,7 +92,7 @@ export default function History() {
 
   return (
     <Screen tabs>
-      <Txt variant="title">History</Txt>
+      <PageHeader kicker="LOOK BACK" title="History" tagline="Every meal, every trend, every kilo." color={C.fat} />
       <Segmented value={span} onChange={(v) => { setSpan(v); setSelected(null); }} options={[{ value: '7', label: '7 days' }, { value: '30', label: '30 days' }]} />
 
       <Card style={{ gap: Space.md }}>

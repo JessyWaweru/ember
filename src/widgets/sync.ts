@@ -1,10 +1,11 @@
 import { useEffect, useMemo } from 'react';
 import { Platform } from 'react-native';
 
-import { useExercises, useHabitLogs, useHabits, useMeals, useProfile, useWorkouts } from '@/lib/data';
+import { useExercises, useMeals, useProfile, useWorkouts } from '@/lib/data';
 import { addDays, fromDateKey, todayKey } from '@/lib/dates';
 import { dayStatus, habitStats, isScheduled, logsByDate } from '@/lib/habits';
 import { overallRank, rankExercise } from '@/lib/tiers';
+import { useHabitData } from '@/lib/use-habit-data';
 
 import CaloriesWidget from './CaloriesWidget';
 import ExerciseWidget from './ExerciseWidget';
@@ -41,8 +42,10 @@ export function useWidgetSync() {
   const meals = useMeals(today).data;
   const workouts = useWorkouts().data;
   const exercises = useExercises().data;
-  const habits = useHabits().data;
-  const habitLogs = useHabitLogs().data;
+  // Same view of habits as the app: auto habits filled in, paused days skipped.
+  const habitData = useHabitData();
+  const habits = habitData.isPending ? undefined : habitData.habits;
+  const habitLogs = habitData.isPending ? undefined : habitData.logs;
 
   const burnedToday = useMemo(
     () => (workouts ?? []).filter((w) => w.log_date === today).reduce((s, w) => s + w.calories_burned, 0),

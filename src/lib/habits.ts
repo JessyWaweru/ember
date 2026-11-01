@@ -1,5 +1,5 @@
 import { addDays, dateRange, todayKey, toDateKey, weekday } from './dates';
-import type { Habit, HabitLog, HabitSection } from './types';
+import type { Habit, HabitAuto, HabitLog, HabitPause, HabitSection } from './types';
 
 export const HABIT_COLORS = ['#22C55E', '#A78BFA', '#F472B6', '#38BDF8', '#FACC15', '#FB923C', '#F87171', '#2DD4BF'];
 
@@ -15,8 +15,18 @@ export const SECTIONS: { value: HabitSection; label: string; emoji: string }[] =
   { value: 'anytime', label: 'Anytime', emoji: '⏳' },
 ];
 
-type Template = Omit<Habit, 'id' | 'archived' | 'sort_order' | 'created_at' | 'color' | 'days'> & { color?: string };
+export const AUTO_OPTIONS: { value: HabitAuto; label: string; detail: string; kind: Habit['kind'] }[] = [
+  { value: 'calorie_cap', label: 'Stay under calories', detail: 'A slip whenever a day goes over your budget (goal + burned).', kind: 'bad' },
+  { value: 'cardio', label: 'Any cardio workout', detail: 'Done when you log a cardio workout that day.', kind: 'good' },
+  { value: 'strength', label: 'Any strength workout', detail: 'Done when you log a weights or bodyweight workout that day.', kind: 'good' },
+];
+export const autoLabel = (auto: HabitAuto) => AUTO_OPTIONS.find((o) => o.value === auto)!.label;
+
+type Template = Omit<Habit, 'id' | 'archived' | 'sort_order' | 'created_at' | 'color' | 'days' | 'auto'> & { color?: string; auto?: HabitAuto };
 export const HABIT_TEMPLATES: Template[] = [
+  { name: 'Max calories', emoji: '🎯', kind: 'bad', section: 'anytime', target_count: 1, color: '#FB923C', auto: 'calorie_cap' },
+  { name: 'Cardio', emoji: '🏃', kind: 'good', section: 'anytime', target_count: 1, color: '#22C55E', auto: 'cardio' },
+  { name: 'Strength training', emoji: '💪', kind: 'good', section: 'anytime', target_count: 1, color: '#F87171', auto: 'strength' },
   { name: 'Drink water', emoji: '💧', kind: 'good', section: 'anytime', target_count: 8, color: '#38BDF8' },
   { name: 'Walk 10k steps', emoji: '🚶', kind: 'good', section: 'anytime', target_count: 1, color: '#22C55E' },
   { name: 'Workout', emoji: '💪', kind: 'good', section: 'morning', target_count: 1, color: '#FB923C' },
@@ -28,6 +38,66 @@ export const HABIT_TEMPLATES: Template[] = [
   { name: 'No junk food', emoji: '🍔', kind: 'bad', section: 'anytime', target_count: 1, color: '#FACC15' },
   { name: 'No doom-scrolling', emoji: '📵', kind: 'bad', section: 'anytime', target_count: 1, color: '#F87171' },
 ];
+
+export const PAUSE_REASONS = ['Rest day', 'Sick', 'Injured', 'Travelling', 'Busy week', 'Deload'];
+
+/** What the auto habits read: daily calories eaten/burned, workout days by type, and the calorie goal. */
+export type AutoInputs = {
+  eaten: Map<string, number>;
+  burned: Map<string, number>;
+  cardioDays: Set<string>;
+  strengthDays: Set<string>;
+  calorieGoal: number;
+};
+
+/** Does a pause cover this habit on this day? */
+export const pauseCovers = (p: HabitPause, habitId: string, key: string) =>
+  (p.habit_id === null || p.habit_id === habitId) && key >= p.start_date && (p.end_date === null || key <= p.end_date);
+
+/**
+ * Your check-ins plus what the app fills in: auto habits from meals and workouts (from the day you add them),
+ * and paused days as skips carrying their reason. Your own log wins, except a pause beats anything short of done.
+ */
+export function effectiveLogs(habits: Habit[], logs: HabitLog[], pauses: HabitPause[], auto: AutoInputs | null): HabitLog[] {
+  const today = todayKey();
+  const out = new Map(logs.map((l) => [`${l.habit_id}|${l.log_date}`, l]));
+  const put = (h: Habit, key: string, log: Omit<HabitLog, 'id' | 'habit_id' | 'log_date'>) =>
+    out.set(`${h.id}|${key}`, { id: `auto-${h.id}-${key}`, habit_id: h.id, log_date: key, ...log });
+
+  if (auto) {
+    for (const h of habits) {
+      if (!h.auto) continue;
+      for (const key of dateRange(createdKey(h), today)) {
+        if (out.has(`${h.id}|${key}`)) continue;
+        if (h.auto === 'calorie_cap') {
+          const eaten = auto.eaten.get(key);
+          if (eaten !== undefined && eaten > auto.calorieGoal + (auto.burned.get(key) ?? 0)) put(h, key, { count: 1, status: 'failed' });
+        } else if ((h.auto === 'cardio' ? auto.cardioDays : auto.strengthDays).has(key)) {
+          put(h, key, { count: h.target_count, status: 'done' });
+        }
+      }
+    }
+  }
+
+  for (const p of pauses) {
+    const end = p.end_date && p.end_date < today ? p.end_date : today;
+    for (const h of habits) {
+      if (p.habit_id !== null && p.habit_id !== h.id) continue;
+      for (const key of dateRange(p.start_date, end)) {
+        const existing = out.get(`${h.id}|${key}`);
+        if (existing?.status === 'done' && existing.count >= h.target_count) continue;
+        put(h, key, { count: 0, status: 'skipped', pause: p });
+      }
+    }
+  }
+  return [...out.values()];
+}
+
+/** Pauses that are running today or start later, newest first. */
+export const currentPauses = (pauses: HabitPause[]) => {
+  const today = todayKey();
+  return pauses.filter((p) => p.end_date === null || p.end_date >= today);
+};
 
 /** Streak milestones, GRIT-style achievements. */
 export const MILESTONES = [3, 7, 14, 30, 50, 100, 200, 365];
@@ -128,4 +198,89 @@ export function perfectDayStreak(habits: Habit[], logs: HabitLog[]): number {
     else if (k !== today) break;
   }
   return streak;
+}
+
+/** How many of the day's habits that count were done. Habits only count from the day they were added. */
+export function dayProgress(habits: Habit[], maps: Map<string, Map<string, HabitLog>>, key: string) {
+  let done = 0;
+  let total = 0;
+  for (const h of habits) {
+    const log = maps.get(h.id)?.get(key);
+    if (key < createdKey(h) && !log) continue;
+    const s = dayStatus(h, log, key);
+    if (s === 'off' || s === 'skipped' || (s === 'open' && key === todayKey())) continue;
+    total++;
+    if (s === 'done') done++;
+  }
+  return { done, total };
+}
+
+export type OverallStats = {
+  rate30: number;
+  perfect30: number;
+  perfectCurrent: number;
+  perfectBest: number;
+  wins: number;
+  /** completion per week, oldest first, for the last `weeks` weeks (null = nothing counted) */
+  weekly: { start: string; rate: number | null }[];
+  /** completion by weekday (0 = Sunday) over the same weeks */
+  byWeekday: (number | null)[];
+  /** completion per day for the heatmap, keyed by date (null = nothing counted) */
+  daily: Map<string, number | null>;
+};
+
+export function overallStats(habits: Habit[], logs: HabitLog[], weeks = 12): OverallStats {
+  const today = todayKey();
+  const maps = new Map(habits.map((h) => [h.id, logsByDate(h.id, logs)]));
+  const earliest = habits.length ? habits.map(createdKey).sort()[0] : today;
+  const yearAgo = addDays(today, -364);
+  const from = earliest > yearAgo ? earliest : yearAgo;
+
+  const daily = new Map<string, number | null>();
+  let wins = 0;
+  let run = 0;
+  let perfectBest = 0;
+  for (const key of dateRange(from, today)) {
+    const { done, total } = dayProgress(habits, maps, key);
+    wins += done;
+    daily.set(key, total ? done / total : null);
+    if (total === 0) continue;
+    if (done === total) perfectBest = Math.max(perfectBest, ++run);
+    else if (key !== today) run = 0;
+  }
+
+  const rateOver = (keys: string[]) => {
+    let done = 0;
+    let total = 0;
+    for (const k of keys) {
+      const p = dayProgress(habits, maps, k);
+      done += p.done;
+      total += p.total;
+    }
+    return total ? done / total : null;
+  };
+
+  const last30 = dateRange(addDays(today, -29), today);
+  const thisSunday = addDays(today, -weekday(today));
+  const weekly = Array.from({ length: weeks }, (_, i) => {
+    const start = addDays(thisSunday, (i - weeks + 1) * 7);
+    return { start, rate: rateOver(dateRange(start, addDays(start, 6)).filter((k) => k <= today)) };
+  });
+  const span = dateRange(addDays(thisSunday, -(weeks - 1) * 7), today);
+  const byWeekday = [0, 1, 2, 3, 4, 5, 6].map((d) => rateOver(span.filter((k) => weekday(k) === d)));
+
+  const perfectCurrent = perfectDayStreak(habits, logs);
+  return {
+    rate30: rateOver(last30) ?? 0,
+    perfect30: last30.filter((k) => {
+      const p = dayProgress(habits, maps, k);
+      return p.total > 0 && p.done === p.total;
+    }).length,
+    perfectCurrent,
+    perfectBest: Math.max(perfectBest, perfectCurrent),
+    wins,
+    weekly,
+    byWeekday,
+    daily,
+  };
 }

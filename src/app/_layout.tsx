@@ -66,7 +66,10 @@ function RootStack() {
         <Stack.Screen name="habit-edit" options={sheet} />
         <Stack.Screen name="weight" options={{ ...sheet, sheetAllowedDetents: [0.5] }} />
         <Stack.Screen name="goals" options={sheet} />
+        <Stack.Screen name="habit-pause" options={sheet} />
         <Stack.Screen name="habit/[id]" options={detailHeader} />
+        <Stack.Screen name="habits-stats" options={detailHeader} />
+        <Stack.Screen name="habits-manage" options={detailHeader} />
         <Stack.Screen name="exercise/[id]" options={detailHeader} />
       </Stack.Protected>
     </Stack>

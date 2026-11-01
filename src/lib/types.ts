@@ -65,13 +65,23 @@ export type Habit = {
   target_count: number;
   kind: HabitKind;
   section: HabitSection;
+  /** Ticks itself off from your food log or workouts; null = you check it off. */
+  auto: HabitAuto | null;
   archived: boolean;
   sort_order: number;
   created_at: string;
 };
-export type NewHabit = Pick<Habit, 'name' | 'emoji' | 'color' | 'days' | 'target_count' | 'kind' | 'section'>;
+// `auto` is left out (undefined) when it doesn't change, so habits save even before update 001 adds the column.
+export type NewHabit = Pick<Habit, 'name' | 'emoji' | 'color' | 'days' | 'target_count' | 'kind' | 'section'> & { auto?: HabitAuto | null };
+
+export type HabitAuto = 'calorie_cap' | 'cardio' | 'strength';
 
 export type HabitKind = 'good' | 'bad';
 export type HabitSection = 'morning' | 'afternoon' | 'evening' | 'anytime';
 export type HabitLogStatus = 'done' | 'skipped' | 'failed';
-export type HabitLog = { id: string; habit_id: string; log_date: string; count: number; status: HabitLogStatus };
+/** `pause` is set on days a pause covers (status 'skipped'); it's derived, never stored. */
+export type HabitLog = { id: string; habit_id: string; log_date: string; count: number; status: HabitLogStatus; pause?: HabitPause };
+
+/** A break from some (habit_id) or all (null) habits, from start_date to end_date inclusive (null = until resumed). */
+export type HabitPause = { id: string; habit_id: string | null; start_date: string; end_date: string | null; reason: string; created_at: string };
+export type NewHabitPause = Pick<HabitPause, 'habit_id' | 'start_date' | 'end_date' | 'reason'>;

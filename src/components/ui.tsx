@@ -108,6 +108,28 @@ export const Row = ({ children, style, gap = Space.sm }: { children: ReactNode; 
 );
 
 /** Title row for sheet screens, with a close button (installed web apps have no back button). */
+/**
+ * Top of a page: a coloured kicker, the title, and a one-line take on what the page is for.
+ * `right` holds the page's actions.
+ */
+export function PageHeader({ kicker, title, tagline, color, right }: {
+  kicker: string; title: string; tagline: string; color: string; right?: ReactNode;
+}) {
+  return (
+    <Row style={{ justifyContent: 'space-between', alignItems: 'flex-end' }}>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Row gap={Space.sm}>
+          <View style={{ width: 18, height: 3, borderRadius: 2, backgroundColor: color }} />
+          <Txt variant="caption" color={color} style={{ fontWeight: '800', letterSpacing: 2 }}>{kicker}</Txt>
+        </Row>
+        <Txt variant="title">{title}</Txt>
+        <Txt variant="caption" color={C.textDim}>{tagline}</Txt>
+      </View>
+      {right ? <Row gap={Space.sm}>{right}</Row> : null}
+    </Row>
+  );
+}
+
 const goBack = () => (router.canGoBack() ? router.back() : router.replace('/'));
 
 export function SheetHeader({ title }: { title: string }) {
@@ -156,6 +178,9 @@ const ICONS = {
   search: { ios: 'magnifyingglass', android: 'search', web: 'search' },
   close: { ios: 'xmark', android: 'close', web: 'close' },
   minus: { ios: 'minus', android: 'remove', web: 'remove' },
+  list: { ios: 'list.bullet', android: 'list', web: 'list' },
+  chart: { ios: 'chart.bar.fill', android: 'bar_chart', web: 'bar_chart' },
+  pause: { ios: 'pause.fill', android: 'pause', web: 'pause' },
 } as const;
 
 export function Icon({ name, size = 20, color = C.text }: { name: keyof typeof ICONS; size?: number; color?: string }) {
@@ -171,6 +196,7 @@ export function Icon({ name, size = 20, color = C.text }: { name: keyof typeof I
 }
 const FALLBACK: Record<keyof typeof ICONS, string> = {
   plus: '+', check: '✓', chevronLeft: '‹', chevronRight: '›', flame: '🔥', trash: '🗑', search: '⌕', close: '×', minus: '−',
+  list: '☰', chart: '▤', pause: '⏸',
 };
 
 // ───────────── controls ─────────────
