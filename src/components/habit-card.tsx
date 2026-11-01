@@ -73,11 +73,12 @@ export function HabitCard({ habit, logs, date }: { habit: Habit; logs: Map<strin
       onPress={() => router.push({ pathname: '/habit/[id]', params: { id: habit.id } })}
       onLongPress={menu}
       style={({ pressed }) => ({
-        backgroundColor: C.card,
+        // Every card wears its habit's colour: a soft wash, and a border that brightens once it's done.
+        backgroundColor: habit.color + '14',
         borderRadius: Radius.md,
         padding: Space.md,
         borderWidth: 1,
-        borderColor: done ? habit.color + '55' : C.border,
+        borderColor: habit.color + (done ? 'AA' : '55'),
         opacity: pressed ? 0.85 : status === 'skipped' ? (pause ? 0.8 : 0.6) : 1,
       })}>
       <Row gap={Space.md}>
@@ -111,7 +112,7 @@ export function HabitCard({ habit, logs, date }: { habit: Habit; logs: Map<strin
                   <View
                     style={{
                       width: 14, height: 14, borderRadius: 4, backgroundColor: statusColor(s, habit.color),
-                      borderWidth: isBlank(s) ? 1 : 0, borderColor: C.border, opacity: s === 'off' ? 0.35 : 1,
+                      borderWidth: isBlank(s) ? 1 : 0, borderColor: habit.color + '66', opacity: s === 'off' ? 0.35 : 1,
                     }}
                   />
                   <Txt style={{ fontSize: 8, color: C.textFaint }}>{WEEKDAY_LETTERS[weekday(d)]}</Txt>
