@@ -12,6 +12,7 @@ import { addDays, fromDateKey, prettyDay, toDateKey, todayKey, WEEKDAY_LETTERS }
 import { autoLabel, dayStatus, habitStats, logsByDate, MILESTONES } from '@/lib/habits';
 import type { Habit, HabitLog } from '@/lib/types';
 import { useHabitData } from '@/lib/use-habit-data';
+import { sound } from '@/lib/sound';
 
 function Stat({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
@@ -43,8 +44,12 @@ function MonthCalendar({ habit, logs }: { habit: Habit; logs: Map<string, HabitL
     const s = dayStatus(habit, logs.get(key), key);
     const base = { habit_id: habit.id, log_date: key };
     if (habit.kind === 'bad') {
+      if (s === 'failed') sound.undo();
+      else sound.slip();
       setLog.mutate(s === 'failed' ? { ...base, clear: true } : { ...base, count: 1, status: 'failed' });
     } else {
+      if (s === 'done') sound.undo();
+      else sound.complete();
       setLog.mutate(s === 'done' ? { ...base, clear: true } : { ...base, count: habit.target_count, status: 'done' });
     }
   }
@@ -220,7 +225,7 @@ export default function HabitDetail() {
         onPress={() =>
           dialog('Archive habit?', 'It disappears from your list. Your history is kept.', [
             { text: 'Cancel', style: 'cancel' },
-            { text: 'Archive', style: 'destructive', onPress: () => archive.mutate(habit.id, { onSuccess: () => router.back() }) },
+            { text: 'Archive', style: 'destructive', onPress: () => archive.mutate(habit.id, { onSuccess: () => (sound.remove(), router.back()) }) },
           ])
         }
       />

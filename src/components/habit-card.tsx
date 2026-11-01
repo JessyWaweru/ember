@@ -6,6 +6,7 @@ import { C, Radius, Space } from '@/constants/theme';
 import { useSetHabitLog } from '@/lib/data';
 import { addDays, prettyDay, WEEKDAY_LETTERS, weekday } from '@/lib/dates';
 import { autoLabel, dayStatus, habitStats, type DayStatus } from '@/lib/habits';
+import { sound } from '@/lib/sound';
 import type { Habit, HabitLog } from '@/lib/types';
 
 import { Icon, Ring, Row, tap, Txt } from './ui';
@@ -39,16 +40,29 @@ export function HabitCard({ habit, logs, date }: { habit: Habit; logs: Map<strin
             { text: 'Log workout', onPress: () => router.push({ pathname: '/log-workout', params: { date } }) },
           ]);
     }
-    if (status === 'skipped') return setLog.mutate({ ...base, clear: true });
+    if (status === 'skipped') {
+      sound.undo();
+      return setLog.mutate({ ...base, clear: true });
+    }
     if (habit.kind === 'bad') {
-      if (status === 'failed') return setLog.mutate({ ...base, clear: true });
+      if (status === 'failed') {
+        sound.undo();
+        return setLog.mutate({ ...base, clear: true });
+      }
       return dialog(`Slipped on "${habit.name}"?`, 'This resets your streak.', [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Log slip', style: 'destructive', onPress: () => setLog.mutate({ ...base, count: 1, status: 'failed' }) },
+        { text: 'Log slip', style: 'destructive', onPress: () => (sound.slip(), setLog.mutate({ ...base, count: 1, status: 'failed' })) },
       ]);
     }
-    if (status === 'done') return setLog.mutate({ ...base, clear: true });
-    setLog.mutate({ ...base, count: counted ? count + 1 : 1, status: 'done' });
+    if (status === 'done') {
+      sound.undo();
+      return setLog.mutate({ ...base, clear: true });
+    }
+    // A counted habit chimes once it reaches its target; steps before that just tick.
+    const next = counted ? count + 1 : 1;
+    if (next >= habit.target_count) sound.complete();
+    else sound.tick();
+    setLog.mutate({ ...base, count: next, status: 'done' });
   }
 
   function menu() {
@@ -57,7 +71,7 @@ export function HabitCard({ habit, logs, date }: { habit: Habit; logs: Map<strin
     dialog(habit.name, prettyDay(date), [
       status === 'skipped'
         ? { text: 'Unskip', onPress: () => setLog.mutate({ ...base, clear: true }) }
-        : { text: 'Skip day', onPress: () => setLog.mutate({ ...base, count: 0, status: 'skipped' }) },
+        : { text: 'Skip day', onPress: () => (sound.undo(), setLog.mutate({ ...base, count: 0, status: 'skipped' })) },
       ...(counted && count > 0
         ? [{ text: 'Minus one', onPress: () => setLog.mutate(count - 1 > 0 ? { ...base, count: count - 1, status: 'done' } : { ...base, clear: true }) }]
         : log ? [{ text: 'Reset day', style: 'destructive' as const, onPress: () => setLog.mutate({ ...base, clear: true }) }] : []),

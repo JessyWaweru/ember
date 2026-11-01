@@ -20,9 +20,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 
 import { BottomTabInset, C, Fonts, Radius, Space } from '@/constants/theme';
+import { sound } from '@/lib/sound';
 
+/** Feedback for any press: a light haptic on phones, a soft tick on web. */
 export const tap = () => {
   if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  sound.tap();
 };
 
 // ───────────── text ─────────────

@@ -7,6 +7,7 @@ import { C, Space } from '@/constants/theme';
 import { useLogWeight, useUpdateProfile } from '@/lib/data';
 import { ACTIVITY_LABEL, recommendTargets } from '@/lib/nutrition';
 import type { ActivityLevel, GoalType, Profile, Sex } from '@/lib/types';
+import { sound } from '@/lib/sound';
 
 const str = (n: number | null | undefined) => (n == null ? '' : String(n));
 
@@ -55,6 +56,7 @@ export function GoalsForm({ profile, submitLabel, onDone }: { profile: Profile; 
         onboarded: true,
       });
       if (stats.weightKg && stats.weightKg !== profile.weight_kg) await logWeight.mutateAsync(stats.weightKg);
+      sound.success();
       onDone();
     } catch (e) {
       dialog('Could not save', (e as Error).message);

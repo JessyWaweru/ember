@@ -15,6 +15,7 @@ import { rankExercise, type Rank } from '@/lib/tiers';
 import type { ExerciseKind, WorkoutLog, WorkoutSet } from '@/lib/types';
 import { useRankedExercises } from '@/lib/use-ranks';
 import { KNEE_FACTOR, nextEasier, partLabel, standardReps, variantById, variantsFor, type Variant } from '@/lib/variants';
+import { sound } from '@/lib/sound';
 
 type PartDraft = { reps: string; variant: string; knees: boolean };
 type SetDraft = PartDraft & { weight: string; then: PartDraft[] };
@@ -107,8 +108,11 @@ export default function LogWorkout() {
     const firstEver = current.logs.length === 0;
     if (after.score > before.score || firstEver) {
       if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (after.score > before.score) sound.rankUp();
+      else sound.success();
       setRankUp({ before, after, name: current.exercise.name });
     } else {
+      sound.success();
       router.back();
     }
   }

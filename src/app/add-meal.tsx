@@ -10,6 +10,7 @@ import { useDeleteMeal, useMeals, useRecentFoods, useSaveMeal } from '@/lib/data
 import { todayKey } from '@/lib/dates';
 import { searchFoods, type FoodResult } from '@/lib/food-search';
 import type { Meal, MealType } from '@/lib/types';
+import { sound } from '@/lib/sound';
 
 function defaultMealType(): MealType {
   const h = new Date().getHours();
@@ -72,6 +73,7 @@ export default function AddMeal() {
         carbs: (Number(form.carbs) || 0) * servings,
         fat: (Number(form.fat) || 0) * servings,
       });
+      sound.success();
       router.back();
     } catch (e) {
       dialog('Could not save', (e as Error).message);
@@ -85,7 +87,7 @@ export default function AddMeal() {
       {
         text: 'Delete',
         style: 'destructive',
-        onPress: () => del.mutate(existing.id, { onSuccess: () => router.back() }),
+        onPress: () => del.mutate(existing.id, { onSuccess: () => (sound.remove(), router.back()) }),
       },
     ]);
   }

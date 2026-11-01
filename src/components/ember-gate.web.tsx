@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react';
 
+import { sound } from '@/lib/sound';
+
 // The gate before the app: an ember itching to burn. Tap the button and it's thrown into the page, which catches
 // fire from the ember outwards and burns away to reveal the app underneath.
 //
@@ -352,6 +354,7 @@ export function EmberGate({ onDone }: { onDone: () => void }) {
         return;
       }
       thrownAt = performance.now();
+      sound.fire(THROW_MS / 1000, BURN_MS / 1000);
       const e = ember();
       for (let i = 0; i < 90; i++) spawn(e.x, e.y, false, 1.6);
     };

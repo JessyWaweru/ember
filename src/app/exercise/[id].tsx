@@ -12,6 +12,7 @@ import { prettyDay } from '@/lib/dates';
 import { rankHistory, TIERS, type SessionRank } from '@/lib/tiers';
 import { useRankedExercises } from '@/lib/use-ranks';
 import { describeWorkout } from '@/lib/workout-format';
+import { sound } from '@/lib/sound';
 
 export default function ExerciseDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -91,7 +92,7 @@ export default function ExerciseDetail() {
             onPress={() =>
               dialog('Delete this session?', `${prettyDay(w.log_date)} · ${describeWorkout(exercise.kind, w)}`, [
                 { text: 'Cancel', style: 'cancel' },
-                { text: 'Delete', style: 'destructive', onPress: () => del.mutate(w.id) },
+                { text: 'Delete', style: 'destructive', onPress: () => del.mutate(w.id, { onSuccess: sound.remove }) },
               ])
             }>
             <Row gap={Space.md}>

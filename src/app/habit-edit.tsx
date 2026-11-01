@@ -10,6 +10,7 @@ import { useHabits, useSaveHabit } from '@/lib/data';
 import { WEEKDAY_LETTERS } from '@/lib/dates';
 import { AUTO_OPTIONS, HABIT_COLORS, HABIT_EMOJIS, HABIT_TEMPLATES, SECTIONS } from '@/lib/habits';
 import type { HabitKind, HabitSection, NewHabit } from '@/lib/types';
+import { sound } from '@/lib/sound';
 
 const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
 
@@ -35,6 +36,7 @@ export default function HabitEdit() {
       // Only send `auto` when it's on or being switched off.
       const auto = form.auto ?? (existing?.auto ? null : undefined);
       await save.mutateAsync({ ...form, auto, name: form.name.trim(), emoji: form.emoji || '✅', id: existing?.id });
+      sound.success();
       router.back();
     } catch (e) {
       dialog('Could not save', (e as Error).message);

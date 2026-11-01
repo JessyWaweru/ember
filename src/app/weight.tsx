@@ -5,6 +5,7 @@ import { dialog } from '@/components/dialog';
 import { Button, Field, Screen, SheetHeader, Txt } from '@/components/ui';
 import { C } from '@/constants/theme';
 import { useLogWeight, useProfile } from '@/lib/data';
+import { sound } from '@/lib/sound';
 
 export default function Weight() {
   const profile = useProfile().data;
@@ -16,6 +17,7 @@ export default function Weight() {
     if (!(w > 20 && w < 400)) return dialog('Enter a valid weight in kg');
     try {
       await log.mutateAsync(w);
+      sound.success();
       router.back();
     } catch (e) {
       dialog('Could not save', (e as Error).message);

@@ -5,6 +5,7 @@ import { dialog } from '@/components/dialog';
 import { C, Space } from '@/constants/theme';
 import { useDeleteMeal } from '@/lib/data';
 import type { Meal } from '@/lib/types';
+import { sound } from '@/lib/sound';
 
 import { Row, Txt } from './ui';
 
@@ -13,14 +14,14 @@ export function MealRow({ meal }: { meal: Meal }) {
   const confirm = () =>
     dialog('Delete entry?', meal.name, [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => del.mutate(meal.id) },
+      { text: 'Delete', style: 'destructive', onPress: () => del.mutate(meal.id, { onSuccess: sound.remove }) },
     ]);
 
   return (
     <Pressable
       onPress={() => router.push({ pathname: '/add-meal', params: { date: meal.log_date, id: meal.id } })}
       onLongPress={confirm}
-style={({ pressed }) => ({ opacity: pressed || del.isPending ? 0.6 : 1 })}>
+      style={({ pressed }) => ({ opacity: pressed || del.isPending ? 0.6 : 1 })}>
       <Row style={{ justifyContent: 'space-between', paddingVertical: Space.sm }}>
         <View style={{ flex: 1, gap: 2 }}>
           <Txt numberOfLines={1} style={{ fontWeight: '600' }}>{meal.name}</Txt>

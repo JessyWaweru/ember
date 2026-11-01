@@ -5,6 +5,7 @@ import { C, Space } from '@/constants/theme';
 import { useEndPause } from '@/lib/data';
 import { prettyDay, todayKey } from '@/lib/dates';
 import type { Habit, HabitPause } from '@/lib/types';
+import { sound } from '@/lib/sound';
 
 import { Button, Card, Row, Txt } from './ui';
 
@@ -40,7 +41,7 @@ export function PauseBanner({ pauses, habits }: { pauses: HabitPause[]; habits: 
             onPress={() =>
               dialog('Resume now?', `${pauseTarget(p, habits)} count again from today.`, [
                 { text: 'Cancel', style: 'cancel' },
-                { text: 'Resume', onPress: () => end.mutate(p) },
+                { text: 'Resume', onPress: () => end.mutate(p, { onSuccess: sound.success }) },
               ])
             }
           />

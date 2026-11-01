@@ -7,6 +7,7 @@ import { Platform } from 'react-native';
 import { Loading } from '@/components/ui';
 import { C } from '@/constants/theme';
 import { useProfile } from '@/lib/data';
+import { sound } from '@/lib/sound';
 import { useWidgetSync } from '@/widgets/sync';
 
 const TABS = [
@@ -23,6 +24,7 @@ type SymbolName = ComponentProps<typeof SymbolView>['name'];
 function WebTabs() {
   return (
     <Tabs
+      screenListeners={{ tabPress: () => sound.tick() }}
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: C.accent,

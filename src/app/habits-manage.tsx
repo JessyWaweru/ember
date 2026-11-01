@@ -9,6 +9,7 @@ import { useAllHabits, useArchiveHabit, useDeleteHabit, useHabitPauses, useResto
 import { WEEKDAY_LETTERS } from '@/lib/dates';
 import { autoLabel, currentPauses, SECTIONS } from '@/lib/habits';
 import type { Habit } from '@/lib/types';
+import { sound } from '@/lib/sound';
 
 function describe(h: Habit) {
   const type = h.auto ? `⚡ ${autoLabel(h.auto)}` : h.kind === 'bad' ? '🛡️ Quit' : h.target_count > 1 ? `✅ ${h.target_count}× a day` : '✅ Build';
@@ -49,12 +50,12 @@ export default function HabitsManage() {
   const deleteForever = (h: Habit) =>
     dialog(`Delete "${h.name}" forever?`, 'Its whole history and streaks are erased. This can’t be undone.', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete forever', style: 'destructive', onPress: () => del.mutate(h.id) },
+      { text: 'Delete forever', style: 'destructive', onPress: () => del.mutate(h.id, { onSuccess: sound.remove }) },
     ]);
 
   const remove = (h: Habit) =>
     dialog(`Remove "${h.name}"?`, 'Archive hides it but keeps its history, so you can bring it back. Delete erases everything.', [
-      { text: 'Archive', onPress: () => archive.mutate(h.id) },
+      { text: 'Archive', onPress: () => archive.mutate(h.id, { onSuccess: sound.remove }) },
       { text: 'Delete forever', style: 'destructive', onPress: () => deleteForever(h) },
       { text: 'Cancel', style: 'cancel' },
     ]);
@@ -86,7 +87,7 @@ export default function HabitsManage() {
           <Txt variant="caption" color={C.textFaint}>Hidden from your day, history kept.</Txt>
           {archived.map((h) => (
             <HabitRow key={h.id} habit={h}>
-              <Button title="Restore" variant="secondary" style={{ flex: 1 }} onPress={() => restore.mutate(h.id)} />
+              <Button title="Restore" variant="secondary" style={{ flex: 1 }} onPress={() => restore.mutate(h.id, { onSuccess: sound.success })} />
               <Button title="Delete forever" variant="danger" style={{ flex: 1 }} onPress={() => deleteForever(h)} />
             </HabitRow>
           ))}

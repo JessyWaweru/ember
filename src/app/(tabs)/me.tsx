@@ -1,12 +1,13 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Share, View } from 'react-native';
+import { Platform, Share, Switch, View } from 'react-native';
 
 import { dialog } from '@/components/dialog';
 import { Button, Card, Icon, PageHeader, Row, Screen, Txt } from '@/components/ui';
 import { C, Space } from '@/constants/theme';
 import { useAuth } from '@/lib/auth';
 import { useProfile } from '@/lib/data';
+import { sound } from '@/lib/sound';
 import { supabase } from '@/lib/supabase';
 
 function LinkRow({ title, subtitle, onPress }: { title: string; subtitle?: string; onPress: () => void }) {
@@ -25,6 +26,7 @@ export default function Me() {
   const { session } = useAuth();
   const profile = useProfile().data!;
   const [exporting, setExporting] = useState(false);
+  const [soundOn, setSoundOn] = useState(sound.enabled);
 
   async function exportData() {
     setExporting(true);
@@ -64,6 +66,23 @@ export default function Me() {
         subtitle={profile.weight_kg ? `Currently ${profile.weight_kg} kg${profile.goal_weight_kg ? ` · goal ${profile.goal_weight_kg} kg` : ''}` : 'Not set'}
         onPress={() => router.push('/weight')}
       />
+
+      {Platform.OS === 'web' ? (
+        <Card style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Txt style={{ fontWeight: '700' }}>Sounds</Txt>
+            <Txt variant="caption" color={C.textDim}>Taps, check-offs, saves and the fire. Follows your iPhone’s silent switch.</Txt>
+          </View>
+          <Switch
+            value={soundOn}
+            onValueChange={(on) => {
+              sound.setEnabled(on);
+              setSoundOn(on);
+            }}
+            trackColor={{ true: C.accent, false: C.cardHigh }}
+          />
+        </Card>
+      ) : null}
 
       <Card style={{ gap: Space.sm }}>
         <Txt variant="heading">Home-screen widgets</Txt>

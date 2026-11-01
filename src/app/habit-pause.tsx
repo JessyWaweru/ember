@@ -8,6 +8,7 @@ import { C, Space } from '@/constants/theme';
 import { useAddPauses, useHabits } from '@/lib/data';
 import { addDays, prettyDay, todayKey } from '@/lib/dates';
 import { PAUSE_REASONS } from '@/lib/habits';
+import { sound } from '@/lib/sound';
 
 const LENGTHS = [
   { label: '1 day', days: 1 },
@@ -37,6 +38,7 @@ export default function HabitPause() {
     const base = { start_date: start, end_date: end, reason: reason.trim() };
     try {
       await add.mutateAsync(picked.length ? picked.map((habit_id) => ({ ...base, habit_id })) : [{ ...base, habit_id: null }]);
+      sound.success();
       router.back();
     } catch (e) {
       dialog('Could not pause', (e as Error).message);
