@@ -12,10 +12,13 @@ import { useAddWorkout, useCreateExercise, useProfile } from '@/lib/data';
 import { todayKey } from '@/lib/dates';
 import { estimateBurn } from '@/lib/nutrition';
 import { rankExercise, type Rank } from '@/lib/tiers';
-import type { ExerciseKind, WorkoutLog } from '@/lib/types';
+import type { ExerciseKind, WorkoutLog, WorkoutSet } from '@/lib/types';
 import { useRankedExercises } from '@/lib/use-ranks';
+import { variantById, variantsFor, type Variant } from '@/lib/variants';
 
-type SetDraft = { reps: string; weight: string };
+type PartDraft = { reps: string; variant: string };
+type SetDraft = { reps: string; weight: string; variant: string; then: PartDraft[] };
+const EMPTY_SET: SetDraft = { reps: '', weight: '', variant: 'standard', then: [] };
 
 export default function LogWorkout() {
   const params = useLocalSearchParams<{ exerciseId?: string; date?: string }>();
@@ -26,7 +29,9 @@ export default function LogWorkout() {
 
   const [exerciseId, setExerciseId] = useState<string | undefined>(params.exerciseId);
   const [creating, setCreating] = useState(false);
-  const [sets, setSets] = useState<SetDraft[]>([{ reps: '', weight: '' }]);
+  const [sets, setSets] = useState<SetDraft[]>([EMPTY_SET]);
+  // Which variation picker is open: "2" for set 3's opening reps, "2.0" for its first follow-on part.
+  const [picking, setPicking] = useState<string | null>(null);
   const [duration, setDuration] = useState('');
   const [distance, setDistance] = useState('');
   const [calories, setCalories] = useState('');
@@ -35,6 +40,18 @@ export default function LogWorkout() {
 
   const current = ranked.find((r) => r.exercise.id === exerciseId);
   const kind = current?.exercise.kind;
+  const variants = current ? variantsFor(current.exercise) : null;
+
+  const updateSet = (i: number, patch: Partial<SetDraft>) => setSets(sets.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+  const updatePart = (i: number, j: number, patch: Partial<PartDraft>) =>
+    updateSet(i, { then: sets[i].then.map((p, k) => (k === j ? { ...p, ...patch } : p)) });
+  // Follow-on reps default to one step easier than where you left off (standard → knee).
+  function addPart(i: number) {
+    if (!variants) return;
+    const last = sets[i].then.at(-1)?.variant ?? sets[i].variant;
+    const idx = variants.findIndex((v) => v.id === last);
+    updateSet(i, { then: [...sets[i].then, { reps: '', variant: variants[Math.max(0, idx - 1)].id }] });
+  }
 
   function estimate() {
     const mins = Number(duration);
@@ -48,7 +65,12 @@ export default function LogWorkout() {
       ? []
       : sets
           .filter((s) => Number(s.reps) > 0)
-          .map((s) => (kind === 'strength' ? { reps: Number(s.reps), weight: Number(s.weight) || 0 } : { reps: Number(s.reps) }));
+          .map((s): WorkoutSet => {
+            if (kind === 'strength') return { reps: Number(s.reps), weight: Number(s.weight) || 0 };
+            if (!variants) return { reps: Number(s.reps) };
+            const then = s.then.filter((p) => Number(p.reps) > 0).map((p) => ({ reps: Number(p.reps), variant: p.variant }));
+            return { reps: Number(s.reps), variant: s.variant, ...(then.length ? { then } : null) };
+          });
     if (kind !== 'cardio' && cleanSets.length === 0) return dialog('Add at least one set');
     if (kind === 'cardio' && !Number(duration) && !Number(distance)) return dialog('Add a duration or distance');
 
@@ -130,33 +152,68 @@ export default function LogWorkout() {
           {kind !== 'cardio' ? (
             <View style={{ gap: Space.sm }}>
               {sets.map((s, i) => (
-                <Row key={i} gap={Space.sm}>
-                  <Txt color={C.textDim} style={{ width: 44 }}>{`Set ${i + 1}`}</Txt>
-                  <Field
-                    style={{ flex: 1 }}
-                    placeholder={/split squat|lunge/i.test(current.exercise.name) ? 'reps/leg' : 'reps'}
-                    keyboardType="number-pad"
-                    value={s.reps}
-                    onChangeText={(v) => setSets(sets.map((x, j) => (j === i ? { ...x, reps: v } : x)))}
-                  />
-                  {kind === 'strength' ? (
+                <View key={i} style={{ gap: Space.xs }}>
+                  <Row gap={Space.sm}>
+                    <Txt color={C.textDim} style={{ width: 44 }}>{`Set ${i + 1}`}</Txt>
                     <Field
                       style={{ flex: 1 }}
-                      placeholder="kg"
-                      suffix="kg"
-                      keyboardType="decimal-pad"
-                      value={s.weight}
-                      onChangeText={(v) => setSets(sets.map((x, j) => (j === i ? { ...x, weight: v } : x)))}
+                      placeholder={/split squat|lunge/i.test(current.exercise.name) ? 'reps/leg' : 'reps'}
+                      keyboardType="number-pad"
+                      value={s.reps}
+                      onChangeText={(v) => updateSet(i, { reps: v })}
                     />
+                    {kind === 'strength' ? (
+                      <Field
+                        style={{ flex: 1 }}
+                        placeholder="kg"
+                        suffix="kg"
+                        keyboardType="decimal-pad"
+                        value={s.weight}
+                        onChangeText={(v) => updateSet(i, { weight: v })}
+                      />
+                    ) : null}
+                    {variants ? <VariantButton id={s.variant} open={picking === `${i}`} onPress={() => setPicking(picking === `${i}` ? null : `${i}`)} /> : null}
+                    {sets.length > 1 ? <IconButton icon="minus" onPress={() => setSets(sets.filter((_, j) => j !== i))} /> : null}
+                  </Row>
+                  {variants && picking === `${i}` ? (
+                    <VariantPicker variants={variants} value={s.variant} onPick={(v) => { updateSet(i, { variant: v }); setPicking(null); }} />
                   ) : null}
-                  {sets.length > 1 ? <IconButton icon="minus" onPress={() => setSets(sets.filter((_, j) => j !== i))} /> : null}
-                </Row>
+
+                  {s.then.map((p, j) => (
+                    <View key={j} style={{ gap: Space.xs }}>
+                      <Row gap={Space.sm}>
+                        <Txt color={C.textDim} style={{ width: 44 }}>then</Txt>
+                        <Field style={{ flex: 1 }} placeholder="reps" keyboardType="number-pad" value={p.reps} onChangeText={(v) => updatePart(i, j, { reps: v })} />
+                        {variants ? (
+                          <VariantButton id={p.variant} open={picking === `${i}.${j}`} onPress={() => setPicking(picking === `${i}.${j}` ? null : `${i}.${j}`)} />
+                        ) : null}
+                        <IconButton icon="minus" onPress={() => updateSet(i, { then: s.then.filter((_, k) => k !== j) })} />
+                      </Row>
+                      {variants && picking === `${i}.${j}` ? (
+                        <VariantPicker variants={variants} value={p.variant} onPick={(v) => { updatePart(i, j, { variant: v }); setPicking(null); }} />
+                      ) : null}
+                    </View>
+                  ))}
+                  {variants ? (
+                    <Txt variant="caption" color={C.textDim} style={{ marginLeft: 44 + Space.sm }} onPress={() => addPart(i)}>
+                      + then (e.g. finish on knees)
+                    </Txt>
+                  ) : null}
+                </View>
               ))}
               <Button
                 title="+ Add set"
                 variant="secondary"
-                onPress={() => setSets([...sets, { ...(sets[sets.length - 1] ?? { reps: '', weight: '' }) }])}
+                onPress={() => {
+                  const last = sets.at(-1) ?? EMPTY_SET;
+                  setSets([...sets, { ...last, then: last.then.map((p) => ({ ...p })) }]);
+                }}
               />
+              {variants ? (
+                <Txt variant="caption" color={C.textFaint}>
+                  Variations count by difficulty in standard reps: knee ×0.5, diamond ×1.3, archer ×2.5, one-arm ×6. Your rank uses your best set.
+                </Txt>
+              ) : null}
             </View>
           ) : null}
 
@@ -225,5 +282,19 @@ function NewExercise({ existing, onCreated }: { existing: Set<string>; onCreated
         </>
       ) : null}
     </Card>
+  );
+}
+
+function VariantButton({ id, open, onPress }: { id: string; open: boolean; onPress: () => void }) {
+  return <Chip label={`${variantById(id)?.short ?? id} ▾`} active={open} color={C.burn} onPress={onPress} />;
+}
+
+function VariantPicker({ variants, value, onPick }: { variants: Variant[]; value: string; onPick: (id: string) => void }) {
+  return (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Space.sm, paddingLeft: 44 + Space.sm }}>
+      {variants.map((v) => (
+        <Chip key={v.id} label={`${v.name} ×${v.factor}`} active={v.id === value} color={C.burn} onPress={() => onPick(v.id)} />
+      ))}
+    </View>
   );
 }

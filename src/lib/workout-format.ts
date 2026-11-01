@@ -1,16 +1,29 @@
-import type { ExerciseKind, WorkoutLog } from './types';
+import type { ExerciseKind, WorkoutLog, WorkoutSet } from './types';
+import { setParts, variantById } from './variants';
 
-/** One-line summary, e.g. "3 × 12" / "3 sets · best 10 × 20 kg" / "45 min · 4.2 km". */
+/** e.g. "8", "6 diamond", "3 + 5 knee". Standard reps go unlabelled. */
+function describeSet(s: WorkoutSet): string {
+  return setParts(s)
+    .map((p) => {
+      const v = variantById(p.variant);
+      return v && v.id !== 'standard' ? `${p.reps} ${v.short}` : String(p.reps);
+    })
+    .join(' + ');
+}
+
+/** One-line summary, e.g. "3 × 12" / "3 sets · best 10 × 20 kg" / "3 sets · 10, 8, 3 + 5 knee" / "45 min · 4.2 km". */
 export function describeWorkout(kind: ExerciseKind, w: Pick<WorkoutLog, 'sets' | 'duration_min' | 'distance_km'>): string {
   const parts: string[] = [];
   if (kind === 'cardio') {
     if (w.duration_min) parts.push(`${w.duration_min} min`);
     if (w.distance_km) parts.push(`${w.distance_km} km`);
   } else if (w.sets.length) {
-    const sameReps = w.sets.every((s) => s.reps === w.sets[0].reps && (s.weight ?? 0) === (w.sets[0].weight ?? 0));
+    const labels = w.sets.map(describeSet);
+    const sameReps = w.sets.every((s, i) => labels[i] === labels[0] && (s.weight ?? 0) === (w.sets[0].weight ?? 0));
     const weight = (s: { weight?: number }) => (s.weight ? ` × ${s.weight} kg` : '');
-    if (sameReps) parts.push(`${w.sets.length} × ${w.sets[0].reps}${weight(w.sets[0])}`);
-    else parts.push(`${w.sets.length} sets · ${w.sets.map((s) => s.reps).join('/')} reps`);
+    if (sameReps) parts.push(`${w.sets.length} × ${labels[0]}${weight(w.sets[0])}`);
+    else if (labels.some((l) => /\D/.test(l))) parts.push(`${w.sets.length} sets · ${labels.join(', ')}`);
+    else parts.push(`${w.sets.length} sets · ${labels.join('/')} reps`);
     if (w.duration_min) parts.push(`${w.duration_min} min`);
   }
   return parts.join(' · ') || 'Logged';

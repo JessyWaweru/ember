@@ -1,4 +1,5 @@
 import type { Exercise, WorkoutLog } from './types';
+import { standardReps, variantsFor } from './variants';
 
 // Liftoff-style ranks: every exercise is ranked on its own, based on your best
 // performance. Each tier (except the last) is split into three divisions: III → II → I.
@@ -87,14 +88,15 @@ function metricFor(exercise: Exercise, logs: WorkoutLog[], bodyweightKg: number)
     };
   }
   if (exercise.kind === 'bodyweight') {
-    const best = Math.max(0, ...logs.flatMap((l) => l.sets.map((s) => s.reps)));
+    // Variations count by difficulty (a knee rep is half a standard one), so mixed sets rank fairly.
+    const best = Math.max(0, ...logs.flatMap((l) => l.sets.map(standardReps)));
     const scale = bodyweightScale(bodyweightKg);
     return {
       value: best * scale,
       thresholds: BODYWEIGHT.find((r) => r.match.test(exercise.name))!.thresholds,
       // Shown in your own reps at your current bodyweight.
       format: (v) => `${Math.round(v / scale)} reps`,
-      label: 'Best set',
+      label: variantsFor(exercise) ? 'Best set (in standard reps)' : 'Best set',
     };
   }
   const distanceRule = DISTANCE.find((r) => r.match.test(exercise.name));
