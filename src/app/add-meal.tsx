@@ -8,6 +8,7 @@ import { C, Space } from '@/constants/theme';
 import { MEAL_TYPES } from '@/lib/catalog';
 import { useDeleteMeal, useMeals, useRecentFoods, useSaveMeal } from '@/lib/data';
 import { todayKey } from '@/lib/dates';
+import { searchBasicFoods, type BasicFood } from '@/lib/basic-foods';
 import { searchFoods, type FoodResult } from '@/lib/food-search';
 import type { Meal, MealType } from '@/lib/types';
 import { sound } from '@/lib/sound';
@@ -149,45 +150,69 @@ export default function AddMeal() {
   );
 }
 
+type Pickable = {
+  name: string;
+  brand: string | null;
+  per100g: { calories: number; protein: number; carbs: number; fat: number };
+  portions: { label: string; grams: number }[];
+};
+
+const fromBasic = (b: BasicFood): Pickable => ({ name: b.name, brand: null, per100g: b.per100g, portions: b.portions });
+const fromProduct = (r: FoodResult): Pickable => ({
+  name: r.name,
+  brand: r.brand,
+  per100g: r.per100g,
+  portions: r.servingGrams ? [{ label: '1 serving', grams: r.servingGrams }] : [],
+});
+
 function SearchTab({ onPick }: { onPick: (f: Form) => void }) {
   const [q, setQ] = useState('');
-  const [results, setResults] = useState<FoodResult[]>([]);
+  const [products, setProducts] = useState<FoodResult[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [picked, setPicked] = useState<FoodResult | null>(null);
+  const [picked, setPicked] = useState<Pickable | null>(null);
   const [grams, setGrams] = useState('100');
 
-  // Debounced search as you type.
+  // Everyday foods are built in, so they appear as you type; branded products load underneath.
+  const basics = searchBasicFoods(q);
+  const productQuery = q.trim().length >= 3 ? q.trim() : '';
+
   useEffect(() => {
-    if (q.trim().length < 3) return;
+    if (!productQuery) return;
     const ctrl = new AbortController();
     const t = setTimeout(() => {
       setBusy(true);
       setError(null);
-      searchFoods(q.trim(), ctrl.signal)
-        .then(setResults)
+      searchFoods(productQuery, ctrl.signal)
+        .then(setProducts)
         .catch((e: Error) => e.name !== 'AbortError' && setError(e.message))
         .finally(() => setBusy(false));
-    }, 450);
+    }, 400);
     return () => {
       clearTimeout(t);
       ctrl.abort();
     };
-  }, [q]);
+  }, [productQuery]);
+
+  function pick(p: Pickable) {
+    setPicked(p);
+    setGrams(String(p.portions[0]?.grams ?? 100));
+  }
 
   if (picked) {
     const g = Number(grams) || 0;
     const f = g / 100;
     const p = picked.per100g;
+    const portion = picked.portions.find((x) => x.grams === g);
     return (
       <Card style={{ gap: Space.md }}>
         <Txt variant="heading">{picked.name}</Txt>
         {picked.brand ? <Txt color={C.textDim}>{picked.brand}</Txt> : null}
         <Row style={{ flexWrap: 'wrap' }}>
-          <Chip label="100 g" active={grams === '100'} onPress={() => setGrams('100')} />
-          {picked.servingGrams ? (
-            <Chip label={`1 serving (${picked.servingGrams} g)`} active={grams === String(picked.servingGrams)} onPress={() => setGrams(String(picked.servingGrams))} />
-          ) : null}
+          {picked.portions.map((x) => (
+            <Chip key={x.label} label={`${x.label} (${x.grams} g)`} active={g === x.grams} onPress={() => setGrams(String(x.grams))} />
+          ))}
+          <Chip label="100 g" active={g === 100 && !portion} onPress={() => setGrams('100')} />
         </Row>
         <Field label="Amount" suffix="g" keyboardType="decimal-pad" value={grams} onChangeText={setGrams} />
         <Txt variant="label">{`${Math.round(p.calories * f)} kcal`}</Txt>
@@ -196,7 +221,7 @@ function SearchTab({ onPick }: { onPick: (f: Form) => void }) {
           title="Use this"
           onPress={() =>
             onPick({
-              name: `${picked.name}${picked.brand ? ` (${picked.brand})` : ''} · ${g}g`,
+              name: `${picked.name}${picked.brand ? ` (${picked.brand})` : ''} · ${portion ? portion.label : `${g}g`}`,
               calories: String(Math.round(p.calories * f)),
               protein: r1(p.protein * f),
               carbs: r1(p.carbs * f),
@@ -205,30 +230,50 @@ function SearchTab({ onPick }: { onPick: (f: Form) => void }) {
             })
           }
         />
+        <Txt variant="caption" color={C.textFaint}>Had more than one? Set Servings on the next screen (e.g. 3 × 1 tsp).</Txt>
         <Button title="Back to results" variant="ghost" onPress={() => setPicked(null)} />
       </Card>
     );
   }
 
+  const row = (key: string, name: string, sub: string, onPress: () => void) => (
+    <Pressable key={key} onPress={onPress}>
+      <Card style={{ gap: 2, padding: Space.md }}>
+        <Txt numberOfLines={1} style={{ fontWeight: '600' }}>{name}</Txt>
+        <Txt variant="caption" color={C.textDim}>{sub}</Txt>
+      </Card>
+    </Pressable>
+  );
+
   return (
     <View style={{ gap: Space.md }}>
-      <Field placeholder="Search foods (e.g. greek yogurt)" value={q} onChangeText={setQ} autoFocus returnKeyType="search" />
-      {busy ? <ActivityIndicator color={C.accent} /> : null}
-      {error ? <Txt color={C.danger}>{error}</Txt> : null}
-      {!busy && q.trim().length >= 3 && results.length === 0 && !error ? (
-        <Txt color={C.textDim}>No matches — try different words, or add it manually.</Txt>
+      <Field placeholder="Search foods (e.g. sugar, eggs, greek yogurt)" value={q} onChangeText={setQ} autoFocus returnKeyType="search" />
+
+      {basics.length ? (
+        <View style={{ gap: Space.sm }}>
+          <Txt variant="caption" color={C.textDim} style={{ fontWeight: '700', letterSpacing: 1 }}>EVERYDAY FOODS</Txt>
+          {basics.map((b) =>
+            row(b.id, b.name, `${Math.round(b.per100g.calories)} kcal / 100g · ${b.portions.map((x) => x.label).join(', ')}`, () => pick(fromBasic(b)))
+          )}
+        </View>
       ) : null}
-      {results.map((r) => (
-        <Pressable key={r.id} onPress={() => setPicked(r)}>
-          <Card style={{ gap: 2, padding: Space.md }}>
-            <Txt numberOfLines={1} style={{ fontWeight: '600' }}>{r.name}</Txt>
-            <Txt variant="caption" color={C.textDim}>
-              {`${r.brand ? `${r.brand} · ` : ''}${Math.round(r.per100g.calories)} kcal / 100g`}
-            </Txt>
-          </Card>
-        </Pressable>
-      ))}
-      <Txt variant="caption" color={C.textFaint}>Food data from Open Food Facts (free, community-made).</Txt>
+
+      {productQuery ? (
+        <View style={{ gap: Space.sm }}>
+          <Txt variant="caption" color={C.textDim} style={{ fontWeight: '700', letterSpacing: 1 }}>PRODUCTS</Txt>
+          {busy ? <ActivityIndicator color={C.accent} /> : null}
+          {error && !busy ? <Txt color={C.textDim}>{`${error} Everyday foods above still work.`}</Txt> : null}
+          {!busy && !error && products.length === 0 ? (
+            <Txt color={C.textDim}>{basics.length ? 'No branded products for that.' : 'No matches — try different words, or add it manually.'}</Txt>
+          ) : null}
+          {!busy
+            ? products.map((r) =>
+                row(r.id, r.name, `${r.brand ? `${r.brand} · ` : ''}${Math.round(r.per100g.calories)} kcal / 100g`, () => pick(fromProduct(r)))
+              )
+            : null}
+        </View>
+      ) : null}
+      <Txt variant="caption" color={C.textFaint}>Everyday foods: USDA data, built in. Products: Open Food Facts (free, community-made).</Txt>
     </View>
   );
 }
