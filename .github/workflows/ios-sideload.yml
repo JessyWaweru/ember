@@ -1,0 +1,61 @@
+# Builds an unsigned Ember.ipa on GitHub's macOS runners (no Mac or paid Apple account needed).
+# Install it with SideStore/AltStore, which signs it with your free Apple ID.
+# Run it from the repo's Actions tab → "iOS sideload build" → Run workflow, then download the artifact.
+name: iOS sideload build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  ipa:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # EXPO_PUBLIC_* values are baked into the JS bundle at build time.
+      - name: Write .env from repo secrets
+        run: |
+          echo "EXPO_PUBLIC_SUPABASE_URL=${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}" >> .env
+          echo "EXPO_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}" >> .env
+
+      - name: Generate native iOS project (runs pod install)
+        run: npx expo prebuild --platform ios --clean
+
+      - name: Archive (unsigned)
+        run: |
+          set -o pipefail
+          xcodebuild archive \
+            -workspace ios/Ember.xcworkspace \
+            -scheme Ember \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/Ember.xcarchive" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            | tail -n 200
+
+      - name: Package .ipa
+        run: |
+          cd "$RUNNER_TEMP"
+          mkdir -p Payload
+          cp -R Ember.xcarchive/Products/Applications/Ember.app Payload/
+          zip -qr Ember.ipa Payload
+          ls -lh Ember.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Ember-ipa
+          path: ${{ runner.temp }}/Ember.ipa
+          retention-days: 30

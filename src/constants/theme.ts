@@ -1,65 +1,32 @@
-/**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://unistyl.es/), etc.
- */
-
-import '@/global.css';
-
 import { Platform } from 'react-native';
 
-export const Colors = {
-  light: {
-    text: '#000000',
-    background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
-    textSecondary: '#60646C',
-  },
-  dark: {
-    text: '#ffffff',
-    background: '#000000',
-    backgroundElement: '#212225',
-    backgroundSelected: '#2E3135',
-    textSecondary: '#B0B4BA',
-  },
+// Ember is dark-only: one palette keeps the app and the widgets visually consistent.
+export const C = {
+  bg: '#0B0B0D',
+  card: '#16161A',
+  cardHigh: '#1F1F25',
+  border: '#2A2A31',
+  text: '#F5F5F7',
+  textDim: '#9A9AA3',
+  textFaint: '#5E5E66',
+  accent: '#FF6B2C', // ember orange — calories
+  accentSoft: '#3A2015',
+  protein: '#F25F5C',
+  carbs: '#F2B33D',
+  fat: '#4D9DE0',
+  burn: '#22C55E', // exercise
+  habit: '#A78BFA',
+  danger: '#EF4444',
 } as const;
-
-export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
 
 export const Fonts = Platform.select({
-  ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
-    sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
-    serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
-    rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
-    mono: 'ui-monospace',
-  },
-  default: {
-    sans: 'normal',
-    serif: 'serif',
-    rounded: 'normal',
-    mono: 'monospace',
-  },
-  web: {
-    sans: 'var(--font-display)',
-    serif: 'var(--font-serif)',
-    rounded: 'var(--font-rounded)',
-    mono: 'var(--font-mono)',
-  },
+  ios: { rounded: 'ui-rounded', mono: 'ui-monospace' },
+  default: { rounded: 'normal', mono: 'monospace' },
+  web: { rounded: "ui-rounded, 'SF Pro Rounded', system-ui, sans-serif", mono: 'ui-monospace, monospace' },
 });
 
-export const Spacing = {
-  half: 2,
-  one: 4,
-  two: 8,
-  three: 16,
-  four: 24,
-  five: 32,
-  six: 64,
-} as const;
+export const Space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 } as const;
+export const Radius = { sm: 10, md: 16, lg: 24, pill: 999 } as const;
 
-export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
-export const MaxContentWidth = 800;
+// Native tab bars float over content; the web tab bar takes its own space, so no inset there.
+export const BottomTabInset = Platform.select({ ios: 50, android: 80, web: 0 }) ?? 0;

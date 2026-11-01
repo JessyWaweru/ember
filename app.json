@@ -1,18 +1,22 @@
 {
   "expo": {
-    "name": "ember",
+    "name": "Ember",
     "slug": "ember",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "ember",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0B0B0D",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/images/icon.png",
+      "bundleIdentifier": "com.jessy.ember",
+      "supportsTablet": false
     },
     "android": {
+      "package": "com.jessy.ember",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#0B0B0D",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -20,17 +24,81 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "output": "server",
-      "favicon": "./assets/images/favicon.png"
+      "output": "single",
+      "favicon": "./assets/images/favicon.png",
+      "name": "Ember",
+      "shortName": "Ember",
+      "themeColor": "#0B0B0D",
+      "backgroundColor": "#0B0B0D"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
+          "backgroundColor": "#0B0B0D",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
+        }
+      ],
+      [
+        "expo-widgets",
+        {
+          "enableAndroid": true,
+          "widgets": [
+            {
+              "name": "CaloriesWidget",
+              "displayName": "Calories",
+              "description": "Calories left today, with macros",
+              "ios": {
+                "supportedFamilies": [
+                  "systemSmall",
+                  "systemMedium"
+                ],
+                "initialLayout": "./src/widgets/CaloriesWidget.ios.tsx"
+              },
+              "android": {
+                "initialLayout": "./src/widgets/CaloriesWidget.android.tsx",
+                "targetCellWidth": 3,
+                "targetCellHeight": 2
+              }
+            },
+            {
+              "name": "ExerciseWidget",
+              "displayName": "Training",
+              "description": "Calories burned today and your athlete rank",
+              "ios": {
+                "supportedFamilies": [
+                  "systemSmall",
+                  "systemMedium"
+                ],
+                "initialLayout": "./src/widgets/ExerciseWidget.ios.tsx"
+              },
+              "android": {
+                "initialLayout": "./src/widgets/ExerciseWidget.android.tsx",
+                "targetCellWidth": 2,
+                "targetCellHeight": 2
+              }
+            },
+            {
+              "name": "HabitsWidget",
+              "displayName": "Habits",
+              "description": "Today's habits and streaks",
+              "ios": {
+                "supportedFamilies": [
+                  "systemSmall",
+                  "systemMedium",
+                  "systemLarge"
+                ],
+                "initialLayout": "./src/widgets/HabitsWidget.ios.tsx"
+              },
+              "android": {
+                "initialLayout": "./src/widgets/HabitsWidget.android.tsx",
+                "targetCellWidth": 3,
+                "targetCellHeight": 2
+              }
+            }
+          ]
         }
       ]
     ],
