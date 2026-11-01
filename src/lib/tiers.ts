@@ -17,42 +17,51 @@ export const TIERS = [
 const DIVISIONS = ['III', 'II', 'I'];
 
 // Thresholds where Bronze, Silver, … Legend start (Rookie starts at 0).
+// The ladder follows common strength standards: Bronze ≈ beginner, Silver ≈ novice, Gold ≈ intermediate
+// (a few years of real training — already impressive), Platinum ≈ advanced, Diamond ≈ elite gym lifter,
+// Master ≈ competitive athlete, Legend ≈ national/world-class. Each step gets harder than the last.
+// First match wins, so specific patterns come before general ones.
 type Rule = { match: RegExp; thresholds: number[] };
 
 // Strength: best estimated 1-rep max ÷ bodyweight.
 const STRENGTH: Rule[] = [
-  { match: /deadlift/i, thresholds: [0.6, 0.9, 1.2, 1.5, 1.85, 2.3, 2.8] },
-  { match: /split squat|lunge/i, thresholds: [0.15, 0.3, 0.45, 0.6, 0.8, 1.0, 1.25] },
-  { match: /squat|leg press/i, thresholds: [0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 2.5] },
-  { match: /bench|chest press/i, thresholds: [0.35, 0.55, 0.75, 1.0, 1.25, 1.5, 1.85] },
-  { match: /overhead|ohp|shoulder press|military/i, thresholds: [0.25, 0.4, 0.5, 0.65, 0.8, 1.0, 1.2] },
-  { match: /row/i, thresholds: [0.3, 0.5, 0.7, 0.9, 1.1, 1.35, 1.6] },
-  { match: /curl|tricep|extension|raise|fly/i, thresholds: [0.1, 0.18, 0.25, 0.35, 0.45, 0.55, 0.7] },
-  { match: /.*/, thresholds: [0.2, 0.35, 0.5, 0.7, 0.9, 1.15, 1.4] },
+  { match: /romanian|rdl|stiff/i, thresholds: [0.75, 1.1, 1.5, 1.9, 2.2, 2.5, 2.8] },
+  { match: /deadlift/i, thresholds: [1.0, 1.5, 2.0, 2.5, 2.9, 3.3, 3.7] },
+  // external load only (bodyweight not included)
+  { match: /split squat|lunge/i, thresholds: [0.25, 0.45, 0.65, 0.9, 1.1, 1.3, 1.5] },
+  { match: /leg press/i, thresholds: [1.0, 1.75, 2.5, 3.25, 4.0, 4.75, 5.5] },
+  { match: /squat/i, thresholds: [0.75, 1.1, 1.5, 1.9, 2.3, 2.7, 3.1] },
+  { match: /bench|chest press/i, thresholds: [0.5, 0.75, 1.0, 1.35, 1.65, 1.95, 2.3] },
+  { match: /overhead|ohp|shoulder press|military/i, thresholds: [0.35, 0.55, 0.75, 0.95, 1.15, 1.35, 1.55] },
+  { match: /row/i, thresholds: [0.5, 0.75, 1.0, 1.3, 1.6, 1.85, 2.1] },
+  { match: /pulldown/i, thresholds: [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0] },
+  { match: /curl|tricep|extension/i, thresholds: [0.2, 0.35, 0.5, 0.7, 0.85, 1.0, 1.15] },
+  { match: /raise|fly/i, thresholds: [0.08, 0.14, 0.2, 0.28, 0.36, 0.44, 0.52] },
+  { match: /.*/, thresholds: [0.35, 0.55, 0.8, 1.05, 1.3, 1.55, 1.8] },
 ];
 
-// Bodyweight: most reps in a single set, as done by a 75 kg athlete (see bodyweightScale).
+// Bodyweight: most strict reps in a single set, as done by a 75 kg athlete (see bodyweightScale).
 const BODYWEIGHT: Rule[] = [
-  { match: /pull.?up|chin.?up/i, thresholds: [1, 4, 8, 12, 16, 22, 30] },
-  { match: /push.?up/i, thresholds: [5, 15, 25, 40, 55, 75, 100] },
+  { match: /pull.?up|chin.?up/i, thresholds: [1, 5, 10, 15, 20, 26, 32] },
+  { match: /push.?up/i, thresholds: [10, 20, 35, 50, 65, 80, 100] },
   // reps per leg in one set
-  { match: /split squat|lunge/i, thresholds: [5, 10, 15, 20, 25, 32, 40] },
-  { match: /dip/i, thresholds: [2, 6, 12, 18, 25, 35, 45] },
-  { match: /.*/, thresholds: [5, 10, 20, 30, 45, 60, 80] },
+  { match: /split squat|lunge/i, thresholds: [8, 15, 25, 35, 45, 60, 75] },
+  { match: /dip/i, thresholds: [3, 8, 15, 22, 30, 38, 48] },
+  { match: /.*/, thresholds: [10, 20, 35, 50, 65, 80, 100] },
 ];
 
-// Cardio: distance sports rank on best distance in one session (order matters: first match wins).
+// Cardio: distance sports rank on best distance in one session.
 const DISTANCE: Rule[] = [
-  { match: /walk.*jog|jog.*walk/i, thresholds: [1, 2.5, 4, 6, 8, 12, 16] },
-  { match: /walk|hike/i, thresholds: [1, 2, 4, 6, 8, 12, 16] },
-  { match: /run|jog/i, thresholds: [1, 3, 5, 10, 15, 21.1, 42.2] },
-  { match: /cycl|bike/i, thresholds: [3, 8, 15, 25, 40, 60, 100] },
-  { match: /swim/i, thresholds: [0.2, 0.5, 1, 1.5, 2.5, 3.8, 5] },
+  { match: /walk.*jog|jog.*walk/i, thresholds: [2, 4, 7, 10, 15, 21.1, 30] },
+  { match: /walk|hike/i, thresholds: [2, 4, 8, 12, 20, 30, 42.2] },
+  { match: /run|jog/i, thresholds: [2, 5, 10, 15, 21.1, 30, 42.2] },
+  { match: /cycl|bike/i, thresholds: [5, 15, 30, 50, 80, 120, 160] },
+  { match: /swim/i, thresholds: [0.25, 0.5, 1, 2, 3, 5, 10] },
 ];
 // Everything else ranks on its longest session, in minutes.
 const DURATION: Rule[] = [
-  { match: /box|kick|shadow|hiit|muay|martial/i, thresholds: [5, 10, 20, 30, 45, 60, 90] },
-  { match: /.*/, thresholds: [10, 20, 30, 45, 60, 90, 120] },
+  { match: /box|kick|shadow|hiit|muay|martial/i, thresholds: [10, 20, 30, 45, 60, 90, 120] },
+  { match: /.*/, thresholds: [15, 30, 45, 60, 90, 120, 180] },
 ];
 
 export const epley1RM = (weight: number, reps: number) => (reps <= 1 ? weight : weight * (1 + reps / 30));
