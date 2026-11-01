@@ -2,6 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 
+import { ColorPicker } from '@/components/color-picker';
 import { dialog } from '@/components/dialog';
 import { Button, Card, Chip, Field, IconButton, Row, Screen, Segmented, SheetHeader, Txt } from '@/components/ui';
 import { C, Space } from '@/constants/theme';
@@ -23,6 +24,8 @@ export default function HabitEdit() {
       : { name: '', emoji: '✅', color: HABIT_COLORS[1], days: ALL_DAYS, target_count: 1, kind: 'good', section: 'anytime', auto: null }
   );
   const [showTemplates, setShowTemplates] = useState(!existing);
+  const isCustom = !HABIT_COLORS.includes(form.color);
+  const [customColor, setCustomColor] = useState(false);
   const set = <K extends keyof NewHabit>(k: K, v: NewHabit[K]) => setForm((f) => ({ ...f, [k]: v }));
 
   async function submit() {
@@ -171,11 +174,25 @@ export default function HabitEdit() {
           {HABIT_COLORS.map((c) => (
             <Pressable
               key={c}
-              onPress={() => set('color', c)}
+              onPress={() => {
+                set('color', c);
+                setCustomColor(false);
+              }}
               style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: c, borderWidth: form.color === c ? 3 : 0, borderColor: C.text }}
             />
           ))}
+          {/* Any colour: shows your custom pick, or a palette icon until you have one. */}
+          <Pressable
+            onPress={() => setCustomColor(!customColor)}
+            style={{
+              width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center',
+              backgroundColor: isCustom ? form.color : C.cardHigh,
+              borderWidth: isCustom || customColor ? 3 : 0, borderColor: C.text,
+            }}>
+            {isCustom ? null : <Txt style={{ fontSize: 16 }}>🎨</Txt>}
+          </Pressable>
         </Row>
+        {customColor ? <ColorPicker value={form.color} onChange={(c) => set('color', c)} /> : null}
       </Card>
 
       <Button title={existing ? 'Save' : 'Create habit'} color={form.color} onPress={submit} loading={save.isPending} />

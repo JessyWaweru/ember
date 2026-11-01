@@ -3,7 +3,7 @@
 
 -- Habits that tick themselves off from your food log or workouts.
 alter table public.habits
-  add column if not exists auto text check (auto in ('calorie_cap', 'cardio', 'strength'));
+  add column if not exists auto text check (auto in ('calorie_cap', 'cardio', 'strength', 'food_log'));
 
 -- Pauses: rest days / breaks for some or all habits, always with a reason.
 create table if not exists public.habit_pauses (

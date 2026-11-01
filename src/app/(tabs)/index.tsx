@@ -1,14 +1,14 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { View } from 'react-native';
 
 import { DaySwitcher } from '@/components/day-switcher';
 import { MealRow } from '@/components/meal-row';
 import { Button, Card, Icon, PageHeader, Ring, Row, Screen, Txt } from '@/components/ui';
 import { C, Space } from '@/constants/theme';
-import { useMeals, useProfile, useWorkouts } from '@/lib/data';
+import { useDailyCalories, useMeals, useProfile, useWorkouts } from '@/lib/data';
 import { MEAL_TYPES } from '@/lib/catalog';
-import { todayKey } from '@/lib/dates';
+import { addDays, dayStreaks, todayKey } from '@/lib/dates';
 
 function MacroRing({ label, value, goal, color }: { label: string; value: number; goal: number; color: string }) {
   const left = Math.round(goal - value);
@@ -39,6 +39,9 @@ function greeting() {
 export default function Today() {
   const [date, setDate] = useState(todayKey());
   const profile = useProfile().data!;
+  // Same query the habits use, so it's shared from cache.
+  const dailyEaten = useDailyCalories(addDays(todayKey(), -400)).data;
+  const logStreak = useMemo(() => dayStreaks(new Set(dailyEaten?.keys() ?? [])), [dailyEaten]);
   const { data: meals = [] } = useMeals(date);
   const { data: workouts = [] } = useWorkouts();
 
@@ -50,7 +53,20 @@ export default function Today() {
 
   return (
     <Screen tabs>
-      <PageHeader kicker="FUEL · BURN" title="Today" tagline={greeting()} color={C.accent} />
+      <PageHeader
+        kicker="FUEL · BURN"
+        title="Today"
+        tagline={greeting()}
+        color={C.accent}
+        right={
+          <View style={{ alignItems: 'flex-end' }}>
+            <Txt variant="label" color={logStreak.current ? C.accent : C.textDim}>{`🔥 ${logStreak.current}`}</Txt>
+            <Txt variant="caption" color={C.textDim} style={{ fontSize: 11 }}>
+              {`day logging streak${logStreak.best > logStreak.current ? ` · best ${logStreak.best}` : ''}`}
+            </Txt>
+          </View>
+        }
+      />
       <DaySwitcher date={date} onChange={setDate} />
 
       <Card style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: Space.xl }}>

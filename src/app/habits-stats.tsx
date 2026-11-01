@@ -5,7 +5,7 @@ import { Pressable, ScrollView, View, type ScrollViewInstance } from 'react-nati
 import { pauseSpan, pauseTarget } from '@/components/pause-banner';
 import { Bar, Card, Empty, Loading, PageHeader, Row, Screen, SectionHeader, Txt } from '@/components/ui';
 import { C, Space } from '@/constants/theme';
-import { addDays, fromDateKey, todayKey } from '@/lib/dates';
+import { addDays, fromDateKey, prettyDay, todayKey } from '@/lib/dates';
 import { habitStats, logsByDate, overallStats } from '@/lib/habits';
 import { useHabitData } from '@/lib/use-habit-data';
 
@@ -132,6 +132,9 @@ export default function HabitsStats() {
         <Tile value={`🔥 ${stats.perfectCurrent}`} label="Perfect-day streak" color={C.accent} />
       </Row>
       <Row gap={Space.md}>
+        <Tile value={pct(stats.rateAll)} label={`Done since you began (${prettyDay(stats.since)})`} color={C.habit} />
+      </Row>
+      <Row gap={Space.md}>
         <Tile value={String(stats.perfectBest)} label="Best perfect streak" />
         <Tile value={String(stats.perfect30)} label="Perfect days (30d)" />
         <Tile value={String(stats.wins)} label="Total wins" />
@@ -163,7 +166,8 @@ export default function HabitsStats() {
             <Txt style={{ fontWeight: '700' }}>{pct(s.rate30)}</Txt>
           </Row>
           <Bar progress={s.rate30} color={h.color} />
-          <Txt variant="caption" color={C.textDim}>{`🔥 ${s.current} now · best ${s.best} · ${s.total} ${h.kind === 'bad' ? 'clean days' : 'times done'}`}</Txt>
+          <Txt variant="caption" color={C.textDim}>{`🔥 ${s.current} now · best ${s.best} · ${s.total} ${h.kind === 'bad' ? 'clean days' : 'times done'} in ${s.days} days`}</Txt>
+          <Txt variant="caption" color={C.textFaint}>{`All time ${pct(s.rateAll)} · last 30 days ${pct(s.rate30)}`}</Txt>
         </Card>
       ))}
 

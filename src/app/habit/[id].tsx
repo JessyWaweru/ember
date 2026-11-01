@@ -8,7 +8,7 @@ import { Button, Card, IconButton, Loading, Row, Screen, SectionHeader, Txt } fr
 import { C, Space } from '@/constants/theme';
 import { pauseSpan } from '@/components/pause-banner';
 import { useArchiveHabit, useSetHabitLog } from '@/lib/data';
-import { addDays, fromDateKey, toDateKey, todayKey, WEEKDAY_LETTERS } from '@/lib/dates';
+import { addDays, fromDateKey, prettyDay, toDateKey, todayKey, WEEKDAY_LETTERS } from '@/lib/dates';
 import { autoLabel, dayStatus, habitStats, logsByDate, MILESTONES } from '@/lib/habits';
 import type { Habit, HabitLog } from '@/lib/types';
 import { useHabitData } from '@/lib/use-habit-data';
@@ -161,6 +161,10 @@ export default function HabitDetail() {
       <Row gap={Space.md}>
         <Stat label={habit.kind === 'bad' ? 'Clean days' : 'Times done'} value={String(stats.total)} />
         <Stat label="Success (30 days)" value={`${Math.round(stats.rate30 * 100)}%`} color={habit.color} />
+      </Row>
+      <Row gap={Space.md}>
+        <Stat label={`Days since you started (${prettyDay(stats.start)})`} value={String(stats.days)} />
+        <Stat label="Success (all time)" value={`${Math.round(stats.rateAll * 100)}%`} color={habit.color} />
       </Row>
 
       <SectionHeader title="Achievements" />

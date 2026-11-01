@@ -101,14 +101,15 @@ create table if not exists public.habits (
   -- good: check it off · bad: clean by default, you log a slip
   kind         text not null default 'good' check (kind in ('good', 'bad')),
   section      text not null default 'anytime' check (section in ('morning', 'afternoon', 'evening', 'anytime')),
-  -- ticks itself off: calorie_cap (quit: over budget = slip), cardio / strength (any such workout that day)
-  auto         text check (auto in ('calorie_cap', 'cardio', 'strength')),
+  -- ticks itself off: calorie_cap (quit: over budget = slip), cardio / strength (any such workout that day),
+  -- food_log (any meal logged that day)
+  auto         text check (auto in ('calorie_cap', 'cardio', 'strength', 'food_log')),
   archived     boolean not null default false,
   sort_order   int not null default 0,
   created_at   timestamptz not null default now()
 );
 -- for databases created before auto habits existed
-alter table public.habits add column if not exists auto text check (auto in ('calorie_cap', 'cardio', 'strength'));
+alter table public.habits add column if not exists auto text check (auto in ('calorie_cap', 'cardio', 'strength', 'food_log'));
 
 create table if not exists public.habit_logs (
   id         uuid primary key default gen_random_uuid(),

@@ -74,7 +74,7 @@ export type Habit = {
 // `auto` is left out (undefined) when it doesn't change, so habits save even before update 001 adds the column.
 export type NewHabit = Pick<Habit, 'name' | 'emoji' | 'color' | 'days' | 'target_count' | 'kind' | 'section'> & { auto?: HabitAuto | null };
 
-export type HabitAuto = 'calorie_cap' | 'cardio' | 'strength';
+export type HabitAuto = 'calorie_cap' | 'cardio' | 'strength' | 'food_log';
 
 export type HabitKind = 'good' | 'bad';
 export type HabitSection = 'morning' | 'afternoon' | 'evening' | 'anytime';

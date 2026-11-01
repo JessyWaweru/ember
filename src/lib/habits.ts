@@ -19,6 +19,7 @@ export const AUTO_OPTIONS: { value: HabitAuto; label: string; detail: string; ki
   { value: 'calorie_cap', label: 'Stay under calories', detail: 'A slip whenever a day goes over your budget (goal + burned).', kind: 'bad' },
   { value: 'cardio', label: 'Any cardio workout', detail: 'Done when you log a cardio workout that day.', kind: 'good' },
   { value: 'strength', label: 'Any strength workout', detail: 'Done when you log a weights or bodyweight workout that day.', kind: 'good' },
+  { value: 'food_log', label: 'Log your food', detail: 'Done on any day you log at least one meal.', kind: 'good' },
 ];
 export const autoLabel = (auto: HabitAuto) => AUTO_OPTIONS.find((o) => o.value === auto)!.label;
 
@@ -27,6 +28,7 @@ export const HABIT_TEMPLATES: Template[] = [
   { name: 'Max calories', emoji: '🎯', kind: 'bad', section: 'anytime', target_count: 1, color: '#FB923C', auto: 'calorie_cap' },
   { name: 'Cardio', emoji: '🏃', kind: 'good', section: 'anytime', target_count: 1, color: '#22C55E', auto: 'cardio' },
   { name: 'Strength training', emoji: '💪', kind: 'good', section: 'anytime', target_count: 1, color: '#F87171', auto: 'strength' },
+  { name: 'Log my food', emoji: '📝', kind: 'good', section: 'evening', target_count: 1, color: '#FACC15', auto: 'food_log' },
   { name: 'Drink water', emoji: '💧', kind: 'good', section: 'anytime', target_count: 8, color: '#38BDF8' },
   { name: 'Walk 10k steps', emoji: '🚶', kind: 'good', section: 'anytime', target_count: 1, color: '#22C55E' },
   { name: 'Workout', emoji: '💪', kind: 'good', section: 'morning', target_count: 1, color: '#FB923C' },
@@ -72,7 +74,7 @@ export function effectiveLogs(habits: Habit[], logs: HabitLog[], pauses: HabitPa
         if (h.auto === 'calorie_cap') {
           const eaten = auto.eaten.get(key);
           if (eaten !== undefined && eaten > auto.calorieGoal + (auto.burned.get(key) ?? 0)) put(h, key, { count: 1, status: 'failed' });
-        } else if ((h.auto === 'cardio' ? auto.cardioDays : auto.strengthDays).has(key)) {
+        } else if (h.auto === 'food_log' ? auto.eaten.has(key) : (h.auto === 'cardio' ? auto.cardioDays : auto.strengthDays).has(key)) {
           put(h, key, { count: h.target_count, status: 'done' });
         }
       }
@@ -140,6 +142,11 @@ export type HabitStats = {
   total: number;
   /** completion rate over the last 30 counted days, 0–1 */
   rate30: number;
+  /** completion rate over every counted day since you started, 0–1 */
+  rateAll: number;
+  /** days since you started (counting the first day) */
+  days: number;
+  start: string;
 };
 
 export function habitStats(habit: Habit, logs: Map<string, HabitLog>): HabitStats {
@@ -162,12 +169,15 @@ export function habitStats(habit: Habit, logs: Map<string, HabitLog>): HabitStat
   let best = 0;
   let run = 0;
   let total = 0;
-  for (const day of dateRange(from, today)) {
+  let countedAll = 0;
+  const range = dateRange(from, today);
+  for (const day of range) {
     const s = status(day);
     if (s === 'done') {
       total++;
       best = Math.max(best, ++run);
     } else if (s === 'failed' || (s === 'open' && day !== today)) run = 0;
+    if (s !== 'off' && s !== 'skipped' && !(s === 'open' && day === today)) countedAll++;
   }
 
   let counted = 0;
@@ -179,7 +189,15 @@ export function habitStats(habit: Habit, logs: Map<string, HabitLog>): HabitStat
     if (s === 'done') hit++;
   }
 
-  return { current, best: Math.max(best, current), total, rate30: counted ? hit / counted : 0 };
+  return {
+    current,
+    best: Math.max(best, current),
+    total,
+    rate30: counted ? hit / counted : 0,
+    rateAll: countedAll ? total / countedAll : 0,
+    days: range.length,
+    start: from,
+  };
 }
 
 /** Days in a row where every scheduled habit was done (skips are fine). */
@@ -217,6 +235,9 @@ export function dayProgress(habits: Habit[], maps: Map<string, Map<string, Habit
 
 export type OverallStats = {
   rate30: number;
+  /** completion since your first habit began */
+  rateAll: number;
+  since: string;
   perfect30: number;
   perfectCurrent: number;
   perfectBest: number;
@@ -233,16 +254,17 @@ export function overallStats(habits: Habit[], logs: HabitLog[], weeks = 12): Ove
   const today = todayKey();
   const maps = new Map(habits.map((h) => [h.id, logsByDate(h.id, logs)]));
   const earliest = habits.length ? habits.map(createdKey).sort()[0] : today;
-  const yearAgo = addDays(today, -364);
-  const from = earliest > yearAgo ? earliest : yearAgo;
+  const from = earliest;
 
   const daily = new Map<string, number | null>();
   let wins = 0;
+  let countedAll = 0;
   let run = 0;
   let perfectBest = 0;
   for (const key of dateRange(from, today)) {
     const { done, total } = dayProgress(habits, maps, key);
     wins += done;
+    countedAll += total;
     daily.set(key, total ? done / total : null);
     if (total === 0) continue;
     if (done === total) perfectBest = Math.max(perfectBest, ++run);
@@ -272,6 +294,8 @@ export function overallStats(habits: Habit[], logs: HabitLog[], weeks = 12): Ove
   const perfectCurrent = perfectDayStreak(habits, logs);
   return {
     rate30: rateOver(last30) ?? 0,
+    rateAll: countedAll ? wins / countedAll : 0,
+    since: from,
     perfect30: last30.filter((k) => {
       const p = dayProgress(habits, maps, k);
       return p.total > 0 && p.done === p.total;

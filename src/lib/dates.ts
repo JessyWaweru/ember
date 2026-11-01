@@ -40,3 +40,18 @@ export function prettyDay(key: string): string {
 }
 
 export const WEEKDAY_LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+/** Current and best run of consecutive days in `days`. An empty today doesn't break the current run yet. */
+export function dayStreaks(days: Set<string>): { current: number; best: number } {
+  const today = todayKey();
+  let current = 0;
+  for (let k = days.has(today) ? today : addDays(today, -1); days.has(k); k = addDays(k, -1)) current++;
+  let best = 0;
+  for (const k of days) {
+    if (days.has(addDays(k, -1))) continue; // only count from the first day of each run
+    let run = 0;
+    for (let d = k; days.has(d); d = addDays(d, 1)) run++;
+    best = Math.max(best, run);
+  }
+  return { current, best };
+}
