@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { MealRow } from '@/components/meal-row';
+import { WeightChart } from '@/components/weight-chart';
 import { Button, Card, PageHeader, Row, Screen, Segmented, Txt } from '@/components/ui';
 import { C, Space } from '@/constants/theme';
 import { useMealsRange, useProfile, useWeights, useWorkouts } from '@/lib/data';
@@ -87,8 +88,6 @@ export default function History() {
   const logged = days.filter((d) => totals.has(d));
   const avg = logged.length ? Math.round(logged.reduce((s, d) => s + totals.get(d)!, 0) / logged.length) : 0;
   const burned = workouts.filter((w) => w.log_date >= start).reduce((s, w) => s + w.calories_burned, 0);
-  const latest = weights[weights.length - 1];
-  const first = weights[0];
 
   return (
     <Screen tabs>
@@ -118,29 +117,10 @@ export default function History() {
           <Txt variant="heading">⚖️ Weight</Txt>
           <Txt color={C.accent} style={{ fontWeight: '700' }} onPress={() => router.push('/weight')}>+ Log</Txt>
         </Row>
-        {latest ? (
-          <Row gap={Space.xl}>
-            <View>
-              <Txt variant="title">{`${latest.weight_kg} kg`}</Txt>
-              <Txt variant="caption" color={C.textDim}>{prettyDay(latest.log_date)}</Txt>
-            </View>
-            {first && first.id !== latest.id ? (
-              <View>
-                <Txt variant="title" color={C.textDim}>
-                  {`${latest.weight_kg - first.weight_kg > 0 ? '+' : ''}${(latest.weight_kg - first.weight_kg).toFixed(1)} kg`}
-                </Txt>
-                <Txt variant="caption" color={C.textDim}>since {prettyDay(first.log_date)}</Txt>
-              </View>
-            ) : null}
-            {profile.goal_weight_kg ? (
-              <View>
-                <Txt variant="title" color={C.textDim}>{`${profile.goal_weight_kg} kg`}</Txt>
-                <Txt variant="caption" color={C.textDim}>goal</Txt>
-              </View>
-            ) : null}
-          </Row>
+        {weights.length ? (
+          <WeightChart weights={weights} goalKg={profile.goal_weight_kg} />
         ) : (
-          <Txt color={C.textDim}>No weigh-ins yet.</Txt>
+          <Txt color={C.textDim}>No weigh-ins yet. Log one to start your trend.</Txt>
         )}
       </Card>
 
