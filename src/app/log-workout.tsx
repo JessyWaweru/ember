@@ -177,6 +177,7 @@ export default function LogWorkout() {
 
           <Field label="Notes" placeholder="How did it feel?" value={notes} onChangeText={setNotes} />
           <Button title="Save" color={C.burn} onPress={save} loading={addWorkout.isPending} />
+          <Button title="Cancel" variant="ghost" onPress={() => router.back()} />
         </Card>
       ) : (
         <Txt color={C.textDim}>Pick an exercise above.</Txt>
@@ -212,7 +213,7 @@ function NewExercise({ existing, onCreated }: { existing: Set<string>; onCreated
         options={(Object.keys(KIND_LABEL) as ExerciseKind[]).map((k) => ({ value: k, label: KIND_LABEL[k] }))}
       />
       <Txt variant="caption" color={C.textFaint}>
-        Weights rank on est. 1-rep max vs bodyweight · Bodyweight on best set · Cardio on distance or longest session.
+        Weights rank on est. 1-rep max vs bodyweight · Bodyweight on best set, scaled by your bodyweight · Cardio on distance or longest session.
       </Txt>
       <Button title="Create" color={C.burn} onPress={() => make({ name, kind })} loading={create.isPending} disabled={!name.trim()} />
       {suggestions.length ? (

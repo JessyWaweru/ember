@@ -53,18 +53,25 @@ export function Screen({
   style?: StyleProp<ViewStyle>;
 }) {
   const pad = { paddingHorizontal: Space.lg, paddingBottom: (tabs ? BottomTabInset : 0) + Space.xxl };
+  const body = scroll ? (
+    <ScrollView
+      contentContainerStyle={[pad, { gap: Space.lg, paddingTop: Space.md }, style]}
+      keyboardShouldPersistTaps="handled">
+      {children}
+    </ScrollView>
+  ) : (
+    <View style={[{ flex: 1, paddingTop: Space.md }, pad, style]}>{children}</View>
+  );
+
+  if (Platform.OS === 'web') {
+    // Read the notch straight from CSS: in an iPhone home-screen web app the measured insets can come back as 0.
+    // Sheets render full-screen on web, so every screen needs the top inset.
+    const insets = { paddingTop: 'env(safe-area-inset-top)', paddingBottom: tabs ? 0 : 'env(safe-area-inset-bottom)' };
+    return <View style={[styles.screen, insets as ViewStyle]}>{body}</View>;
+  }
   return (
-    // Sheets sit below the status bar natively, but on web they render full-screen and need the top inset too.
-    <SafeAreaView style={styles.screen} edges={tabs ? ['top'] : Platform.OS === 'web' ? ['top', 'bottom'] : ['bottom']}>
-      {scroll ? (
-        <ScrollView
-          contentContainerStyle={[pad, { gap: Space.lg, paddingTop: Space.md }, style]}
-          keyboardShouldPersistTaps="handled">
-          {children}
-        </ScrollView>
-      ) : (
-        <View style={[{ flex: 1, paddingTop: Space.md }, pad, style]}>{children}</View>
-      )}
+    <SafeAreaView style={styles.screen} edges={tabs ? ['top'] : ['bottom']}>
+      {body}
     </SafeAreaView>
   );
 }

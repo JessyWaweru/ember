@@ -17,7 +17,7 @@ Your data lives in your own Supabase project (free tier), tied to your account. 
 
 **Ranking rules** (see `src/lib/tiers.ts`):
 - Walking / Walk-Jog: longest distance in one session
-- Push-ups / Bulgarian split squats: most reps in one set (split squats count reps per leg)
+- Push-ups / Bulgarian split squats: most reps in one set, scaled by bodyweight^(2/3) so heavier athletes get credit for the extra load (split squats count reps per leg)
 - Shadow kickboxing: longest session in minutes
 - Weighted lifts: estimated 1-rep max ÷ your bodyweight
 

@@ -31,7 +31,7 @@ const STRENGTH: Rule[] = [
   { match: /.*/, thresholds: [0.2, 0.35, 0.5, 0.7, 0.9, 1.15, 1.4] },
 ];
 
-// Bodyweight: most reps in a single set.
+// Bodyweight: most reps in a single set, as done by a 75 kg athlete (see bodyweightScale).
 const BODYWEIGHT: Rule[] = [
   { match: /pull.?up|chin.?up/i, thresholds: [1, 4, 8, 12, 16, 22, 30] },
   { match: /push.?up/i, thresholds: [5, 15, 25, 40, 55, 75, 100] },
@@ -57,6 +57,11 @@ const DURATION: Rule[] = [
 
 export const epley1RM = (weight: number, reps: number) => (reps <= 1 ? weight : weight * (1 + reps / 30));
 
+// Heavier athletes move more load per rep, so their reps count for more. Strength grows roughly with
+// bodyweight^(2/3) (the allometric scaling behind lifting formulas like Wilks), so reps are scaled the same way:
+// 15 push-ups at 110 kg count as 19.4, edging out 22 at 60 kg (19.0).
+const bodyweightScale = (bodyweightKg: number) => (bodyweightKg / 75) ** (2 / 3);
+
 type Metric = { value: number; thresholds: number[]; format: (v: number) => string; label: string };
 
 function metricFor(exercise: Exercise, logs: WorkoutLog[], bodyweightKg: number): Metric {
@@ -74,10 +79,12 @@ function metricFor(exercise: Exercise, logs: WorkoutLog[], bodyweightKg: number)
   }
   if (exercise.kind === 'bodyweight') {
     const best = Math.max(0, ...logs.flatMap((l) => l.sets.map((s) => s.reps)));
+    const scale = bodyweightScale(bodyweightKg);
     return {
-      value: best,
+      value: best * scale,
       thresholds: BODYWEIGHT.find((r) => r.match.test(exercise.name))!.thresholds,
-      format: (v) => `${Math.round(v)} reps`,
+      // Shown in your own reps at your current bodyweight.
+      format: (v) => `${Math.round(v / scale)} reps`,
       label: 'Best set',
     };
   }
