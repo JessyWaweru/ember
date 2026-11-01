@@ -14,11 +14,11 @@ import { estimateBurn } from '@/lib/nutrition';
 import { rankExercise, type Rank } from '@/lib/tiers';
 import type { ExerciseKind, WorkoutLog, WorkoutSet } from '@/lib/types';
 import { useRankedExercises } from '@/lib/use-ranks';
-import { variantById, variantsFor, type Variant } from '@/lib/variants';
+import { KNEE_FACTOR, nextEasier, partLabel, variantById, variantsFor, type Variant } from '@/lib/variants';
 
-type PartDraft = { reps: string; variant: string };
-type SetDraft = { reps: string; weight: string; variant: string; then: PartDraft[] };
-const EMPTY_SET: SetDraft = { reps: '', weight: '', variant: 'standard', then: [] };
+type PartDraft = { reps: string; variant: string; knees: boolean };
+type SetDraft = PartDraft & { weight: string; then: PartDraft[] };
+const EMPTY_SET: SetDraft = { reps: '', weight: '', variant: 'standard', knees: false, then: [] };
 
 export default function LogWorkout() {
   const params = useLocalSearchParams<{ exerciseId?: string; date?: string }>();
@@ -45,12 +45,11 @@ export default function LogWorkout() {
   const updateSet = (i: number, patch: Partial<SetDraft>) => setSets(sets.map((x, j) => (j === i ? { ...x, ...patch } : x)));
   const updatePart = (i: number, j: number, patch: Partial<PartDraft>) =>
     updateSet(i, { then: sets[i].then.map((p, k) => (k === j ? { ...p, ...patch } : p)) });
-  // Follow-on reps default to one step easier than where you left off (standard → knee).
+  // Follow-on reps default to what you'd usually drop to (diamond → knee diamond); any variation can be picked.
   function addPart(i: number) {
     if (!variants) return;
-    const last = sets[i].then.at(-1)?.variant ?? sets[i].variant;
-    const idx = variants.findIndex((v) => v.id === last);
-    updateSet(i, { then: [...sets[i].then, { reps: '', variant: variants[Math.max(0, idx - 1)].id }] });
+    const next = nextEasier(variants, sets[i].then.at(-1) ?? sets[i]);
+    updateSet(i, { then: [...sets[i].then, { reps: '', variant: next.variant ?? 'standard', knees: !!next.knees }] });
   }
 
   function estimate() {
@@ -68,8 +67,9 @@ export default function LogWorkout() {
           .map((s): WorkoutSet => {
             if (kind === 'strength') return { reps: Number(s.reps), weight: Number(s.weight) || 0 };
             if (!variants) return { reps: Number(s.reps) };
-            const then = s.then.filter((p) => Number(p.reps) > 0).map((p) => ({ reps: Number(p.reps), variant: p.variant }));
-            return { reps: Number(s.reps), variant: s.variant, ...(then.length ? { then } : null) };
+            const part = (p: PartDraft) => ({ reps: Number(p.reps), variant: p.variant, ...(p.knees ? { knees: true } : null) });
+            const then = s.then.filter((p) => Number(p.reps) > 0).map(part);
+            return { ...part(s), ...(then.length ? { then } : null) };
           });
     if (kind !== 'cardio' && cleanSets.length === 0) return dialog('Add at least one set');
     if (kind === 'cardio' && !Number(duration) && !Number(distance)) return dialog('Add a duration or distance');
@@ -172,11 +172,11 @@ export default function LogWorkout() {
                         onChangeText={(v) => updateSet(i, { weight: v })}
                       />
                     ) : null}
-                    {variants ? <VariantButton id={s.variant} open={picking === `${i}`} onPress={() => setPicking(picking === `${i}` ? null : `${i}`)} /> : null}
+                    {variants ? <VariantButton choice={s} open={picking === `${i}`} onPress={() => setPicking(picking === `${i}` ? null : `${i}`)} /> : null}
                     {sets.length > 1 ? <IconButton icon="minus" onPress={() => setSets(sets.filter((_, j) => j !== i))} /> : null}
                   </Row>
                   {variants && picking === `${i}` ? (
-                    <VariantPicker variants={variants} value={s.variant} onPick={(v) => { updateSet(i, { variant: v }); setPicking(null); }} />
+                    <VariantPicker variants={variants} value={s} onChange={(c, done) => { updateSet(i, c); if (done) setPicking(null); }} />
                   ) : null}
 
                   {s.then.map((p, j) => (
@@ -185,18 +185,18 @@ export default function LogWorkout() {
                         <Txt color={C.textDim} style={{ width: 44 }}>then</Txt>
                         <Field style={{ flex: 1 }} placeholder="reps" keyboardType="number-pad" value={p.reps} onChangeText={(v) => updatePart(i, j, { reps: v })} />
                         {variants ? (
-                          <VariantButton id={p.variant} open={picking === `${i}.${j}`} onPress={() => setPicking(picking === `${i}.${j}` ? null : `${i}.${j}`)} />
+                          <VariantButton choice={p} open={picking === `${i}.${j}`} onPress={() => setPicking(picking === `${i}.${j}` ? null : `${i}.${j}`)} />
                         ) : null}
                         <IconButton icon="minus" onPress={() => updateSet(i, { then: s.then.filter((_, k) => k !== j) })} />
                       </Row>
                       {variants && picking === `${i}.${j}` ? (
-                        <VariantPicker variants={variants} value={p.variant} onPick={(v) => { updatePart(i, j, { variant: v }); setPicking(null); }} />
+                        <VariantPicker variants={variants} value={p} onChange={(c, done) => { updatePart(i, j, c); if (done) setPicking(null); }} />
                       ) : null}
                     </View>
                   ))}
                   {variants ? (
                     <Txt variant="caption" color={C.textDim} style={{ marginLeft: 44 + Space.sm }} onPress={() => addPart(i)}>
-                      + then (e.g. finish on knees)
+                      + then (switch variation mid-set)
                     </Txt>
                   ) : null}
                 </View>
@@ -211,7 +211,7 @@ export default function LogWorkout() {
               />
               {variants ? (
                 <Txt variant="caption" color={C.textFaint}>
-                  Variations count by difficulty in standard reps: knee ×0.5, diamond ×1.3, archer ×2.5, one-arm ×6. Your rank uses your best set.
+                  Variations count by difficulty in standard reps (diamond ×1.3, archer ×2.5, one-arm ×6); doing one on your knees halves it. Your rank uses your best set.
                 </Txt>
               ) : null}
             </View>
@@ -285,15 +285,28 @@ function NewExercise({ existing, onCreated }: { existing: Set<string>; onCreated
   );
 }
 
-function VariantButton({ id, open, onPress }: { id: string; open: boolean; onPress: () => void }) {
-  return <Chip label={`${variantById(id)?.short ?? id} ▾`} active={open} color={C.burn} onPress={onPress} />;
+type Choice = { variant: string; knees: boolean };
+
+function VariantButton({ choice, open, onPress }: { choice: Choice; open: boolean; onPress: () => void }) {
+  return <Chip label={`${partLabel(choice)} ▾`} active={open} color={C.burn} onPress={onPress} />;
 }
 
-function VariantPicker({ variants, value, onPick }: { variants: Variant[]; value: string; onPick: (id: string) => void }) {
+/** Variation chips plus an "on knees" toggle; `done` is true once a variation is picked (the toggle keeps it open). */
+function VariantPicker({ variants, value, onChange }: { variants: Variant[]; value: Choice; onChange: (c: Choice, done: boolean) => void }) {
+  const kneeable = !!variantById(value.variant)?.knees;
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Space.sm, paddingLeft: 44 + Space.sm }}>
+      {kneeable ? (
+        <Chip label={`On knees ×${KNEE_FACTOR}`} active={value.knees} onPress={() => onChange({ ...value, knees: !value.knees }, false)} />
+      ) : null}
       {variants.map((v) => (
-        <Chip key={v.id} label={`${v.name} ×${v.factor}`} active={v.id === value} color={C.burn} onPress={() => onPick(v.id)} />
+        <Chip
+          key={v.id}
+          label={`${v.name} ×${v.factor}`}
+          active={v.id === value.variant}
+          color={C.burn}
+          onPress={() => onChange({ variant: v.id, knees: value.knees && !!v.knees }, true)}
+        />
       ))}
     </View>
   );

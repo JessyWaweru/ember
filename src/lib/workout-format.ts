@@ -1,12 +1,12 @@
 import type { ExerciseKind, WorkoutLog, WorkoutSet } from './types';
-import { setParts, variantById } from './variants';
+import { partLabel, setParts } from './variants';
 
-/** e.g. "8", "6 diamond", "3 + 5 knee". Standard reps go unlabelled. */
+/** e.g. "8", "6 diamond", "3 diamond + 5 knee diamond". Standard reps go unlabelled. */
 function describeSet(s: WorkoutSet): string {
   return setParts(s)
     .map((p) => {
-      const v = variantById(p.variant);
-      return v && v.id !== 'standard' ? `${p.reps} ${v.short}` : String(p.reps);
+      const label = partLabel(p);
+      return label === 'standard' ? String(p.reps) : `${p.reps} ${label}`;
     })
     .join(' + ');
 }

@@ -39,9 +39,9 @@ export type WeightLog = { id: string; log_date: string; weight_kg: number };
 
 export type Exercise = { id: string; name: string; kind: ExerciseKind; created_at: string };
 
-export type SetPart = { reps: number; variant?: string };
-/** `variant` is a variation id (see variants.ts); `then` holds reps done straight after in other variations. */
-export type WorkoutSet = { reps: number; weight?: number; variant?: string; then?: SetPart[] };
+export type SetPart = { reps: number; variant?: string; knees?: boolean };
+/** `variant` is a variation id (see variants.ts), `knees` its knee version; `then` holds reps done straight after. */
+export type WorkoutSet = SetPart & { weight?: number; then?: SetPart[] };
 
 export type WorkoutLog = {
   id: string;
