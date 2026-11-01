@@ -129,11 +129,11 @@ export default function HabitDetail() {
   const logs = useMemo(() => logsByDate(id, allLogs), [id, allLogs]);
 
   if (isPending) return <Loading />;
-  if (!habit) return <Screen><Txt>Habit not found.</Txt></Screen>;
+  if (!habit) return <Screen back><Txt>Habit not found.</Txt></Screen>;
   const stats = habitStats(habit, logs);
 
   return (
-    <Screen style={{ paddingTop: 100 }}>
+    <Screen back>
       <View style={{ alignItems: 'center', gap: Space.sm }}>
         <View style={{ width: 80, height: 80, borderRadius: 26, backgroundColor: habit.color + '26', alignItems: 'center', justifyContent: 'center' }}>
           <Txt style={{ fontSize: 40 }}>{habit.emoji}</Txt>

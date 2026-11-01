@@ -21,7 +21,7 @@ export default function ExerciseDetail() {
   const item = ranked.find((r) => r.exercise.id === id);
 
   if (isPending) return <Loading />;
-  if (!item) return <Screen><Txt>Exercise not found.</Txt></Screen>;
+  if (!item) return <Screen back><Txt>Exercise not found.</Txt></Screen>;
   const { exercise, rank, logs } = item;
 
   const history = rankHistory(exercise, logs, bodyweight);
@@ -33,7 +33,7 @@ export default function ExerciseDetail() {
   const showExtremes = history.length >= 2 && best.own.value !== lowest.own.value;
 
   return (
-    <Screen style={{ paddingTop: 100 }}>
+    <Screen back>
       <View style={{ alignItems: 'center', gap: Space.sm }}>
         <RankBadge tier={rank.tier} division={logs.length ? rank.division : null} size={110} />
         <Txt variant="title" style={{ marginTop: Space.md }}>{exercise.name}</Txt>

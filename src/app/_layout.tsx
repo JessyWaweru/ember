@@ -3,6 +3,7 @@ import { DarkTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef } from 'react';
+import { Platform } from 'react-native';
 
 import { DialogHost } from '@/components/dialog';
 import { C } from '@/constants/theme';
@@ -24,6 +25,14 @@ const sheet = {
   sheetGrabberVisible: true,
   sheetAllowedDetents: [0.92],
   headerShown: false,
+};
+
+// On web the stack header ignores the iPhone notch, so detail pages draw their own back button (see Screen's `back`).
+const detailHeader = {
+  headerShown: Platform.OS !== 'web',
+  title: '',
+  headerTransparent: true,
+  headerTintColor: C.text,
 };
 
 function RootStack() {
@@ -57,14 +66,8 @@ function RootStack() {
         <Stack.Screen name="habit-edit" options={sheet} />
         <Stack.Screen name="weight" options={{ ...sheet, sheetAllowedDetents: [0.5] }} />
         <Stack.Screen name="goals" options={sheet} />
-        <Stack.Screen
-          name="habit/[id]"
-          options={{ headerShown: true, title: '', headerTransparent: true, headerTintColor: C.text }}
-        />
-        <Stack.Screen
-          name="exercise/[id]"
-          options={{ headerShown: true, title: '', headerTransparent: true, headerTintColor: C.text }}
-        />
+        <Stack.Screen name="habit/[id]" options={detailHeader} />
+        <Stack.Screen name="exercise/[id]" options={detailHeader} />
       </Stack.Protected>
     </Stack>
   );

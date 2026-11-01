@@ -44,26 +44,42 @@ export function Screen({
   children,
   scroll = true,
   tabs = false,
+  back = false,
   style,
 }: {
   children: ReactNode;
   scroll?: boolean;
   /** extra bottom padding so content clears the tab bar */
   tabs?: boolean;
+  /** detail page with a back button: natively the transparent stack header draws it, on web we do */
+  back?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
-  const pad = { paddingHorizontal: Space.lg, paddingBottom: (tabs ? BottomTabInset : 0) + Space.xxl };
-  const body = scroll ? (
-    <ScrollView
-      contentContainerStyle={[pad, { gap: Space.lg, paddingTop: Space.md }, style]}
-      keyboardShouldPersistTaps="handled">
+  const web = Platform.OS === 'web';
+  const pad = {
+    paddingHorizontal: Space.lg,
+    paddingBottom: (tabs ? BottomTabInset : 0) + Space.xxl,
+    paddingTop: back && !web ? 100 : Space.md,
+  };
+  const content = back && web ? (
+    <>
+      <Row>
+        <IconButton icon="chevronLeft" onPress={goBack} />
+      </Row>
       {children}
+    </>
+  ) : (
+    children
+  );
+  const body = scroll ? (
+    <ScrollView contentContainerStyle={[pad, { gap: Space.lg }, style]} keyboardShouldPersistTaps="handled">
+      {content}
     </ScrollView>
   ) : (
-    <View style={[{ flex: 1, paddingTop: Space.md }, pad, style]}>{children}</View>
+    <View style={[{ flex: 1 }, pad, style]}>{content}</View>
   );
 
-  if (Platform.OS === 'web') {
+  if (web) {
     // Read the notch straight from CSS: in an iPhone home-screen web app the measured insets can come back as 0.
     // Sheets render full-screen on web, so every screen needs the top inset.
     const insets = { paddingTop: 'env(safe-area-inset-top)', paddingBottom: tabs ? 0 : 'env(safe-area-inset-bottom)' };
@@ -92,11 +108,13 @@ export const Row = ({ children, style, gap = Space.sm }: { children: ReactNode; 
 );
 
 /** Title row for sheet screens, with a close button (installed web apps have no back button). */
+const goBack = () => (router.canGoBack() ? router.back() : router.replace('/'));
+
 export function SheetHeader({ title }: { title: string }) {
   return (
     <Row style={{ justifyContent: 'space-between', marginTop: Space.md }}>
       <Txt variant="title" style={{ flex: 1 }}>{title}</Txt>
-      <IconButton icon="close" onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} />
+      <IconButton icon="close" onPress={goBack} />
     </Row>
   );
 }
