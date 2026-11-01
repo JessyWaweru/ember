@@ -17,8 +17,7 @@ let ctx: AudioContext | null = null;
 let master: GainNode;
 let noiseBuf: AudioBuffer;
 
-function ac(): AudioContext | null {
-  if (!enabled) return null;
+function create(): AudioContext | null {
   try {
     if (!ctx) {
       const Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
@@ -30,11 +29,34 @@ function ac(): AudioContext | null {
       const d = noiseBuf.getChannelData(0);
       for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     }
-    if (ctx.state === 'suspended') ctx.resume();
     return ctx;
   } catch {
     return null;
   }
+}
+
+// iOS Safari can leave the context 'suspended' or 'interrupted' (its own state) and only lets a page wake it inside
+// a user gesture. So every tap and every return to the app nudges it awake, playing a silent blip to unlock output.
+function wake() {
+  if (!enabled) return;
+  const c = create();
+  if (!c || c.state === 'running') return;
+  c.resume().catch(() => {});
+  const blip = c.createBufferSource();
+  blip.buffer = c.createBuffer(1, 1, c.sampleRate);
+  blip.connect(c.destination);
+  blip.start(0);
+}
+if (typeof window !== 'undefined') {
+  for (const type of ['touchend', 'pointerup', 'click', 'keydown']) window.addEventListener(type, wake, { capture: true, passive: true });
+  document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && wake());
+}
+
+function ac(): AudioContext | null {
+  if (!enabled) return null;
+  const c = create();
+  if (c && c.state !== 'running') wake();
+  return c;
 }
 
 type ToneOpts = { type?: OscillatorType; gain?: number; attack?: number; slideTo?: number };
@@ -58,7 +80,7 @@ function tone(freq: number, at: number, dur: number, { type = 'sine', gain = 0.2
 }
 
 /** A bell-ish note: a sine plus a quiet octave for sparkle. */
-const bell = (freq: number, at: number, dur = 0.35, gain = 0.16) => {
+const bell = (freq: number, at: number, dur = 0.35, gain = 0.4) => {
   tone(freq, at, dur, { gain });
   tone(freq * 2, at, dur * 0.6, { gain: gain * 0.25 });
 };
@@ -100,37 +122,37 @@ export const sound = {
   },
 
   /** Any button, chip or toggle: a soft, short tick. */
-  tap: () => tone(1500, 0, 0.045, { type: 'triangle', gain: 0.07, slideTo: 1150 }),
+  tap: () => tone(1500, 0, 0.05, { type: 'triangle', gain: 0.22, slideTo: 1150 }),
   /** Switching tabs: quieter still. */
-  tick: () => tone(1900, 0, 0.03, { gain: 0.045 }),
+  tick: () => tone(1900, 0, 0.035, { gain: 0.14 }),
   /** Habit done: two rising bell notes. */
   complete: () => {
     bell(880, 0, 0.3);
     bell(1318.5, 0.08, 0.45);
   },
   /** Undo / skip: a small falling blip. */
-  undo: () => tone(700, 0, 0.12, { gain: 0.1, slideTo: 480 }),
+  undo: () => tone(700, 0, 0.14, { gain: 0.3, slideTo: 480 }),
   /** Slip on a quit habit: a low, soft thud. */
   slip: () => {
-    tone(196, 0, 0.28, { type: 'triangle', gain: 0.22, slideTo: 110 });
-    noise(0, 0.12, { freq: 400, gain: 0.08 });
+    tone(196, 0, 0.3, { type: 'triangle', gain: 0.5, slideTo: 110 });
+    noise(0, 0.12, { freq: 400, gain: 0.2 });
   },
   /** Something saved: a quick bright arpeggio. */
   success: () => {
-    bell(1046.5, 0, 0.25, 0.12);
-    bell(1318.5, 0.06, 0.25, 0.12);
-    bell(1568, 0.12, 0.45, 0.14);
+    bell(1046.5, 0, 0.25, 0.3);
+    bell(1318.5, 0.06, 0.25, 0.3);
+    bell(1568, 0.12, 0.45, 0.35);
   },
   /** Something deleted: a descending swish. */
   remove: () => {
-    tone(620, 0, 0.18, { gain: 0.12, slideTo: 240 });
-    noise(0, 0.18, { filter: 'bandpass', freq: 2400, sweepTo: 500, q: 1.2, gain: 0.07 });
+    tone(620, 0, 0.2, { gain: 0.32, slideTo: 240 });
+    noise(0, 0.2, { filter: 'bandpass', freq: 2400, sweepTo: 500, q: 1.2, gain: 0.2 });
   },
   /** Rank up: a rising fanfare, then a shimmer. */
   rankUp: () => {
-    [523.3, 659.3, 784, 1046.5].forEach((f, i) => bell(f, i * 0.09, 0.4, 0.14));
-    [1568, 2093, 2637].forEach((f, i) => bell(f, 0.4 + i * 0.05, 0.9, 0.06));
-    noise(0.36, 0.7, { filter: 'highpass', freq: 5000, gain: 0.03, attack: 0.05 });
+    [523.3, 659.3, 784, 1046.5].forEach((f, i) => bell(f, i * 0.09, 0.4, 0.35));
+    [1568, 2093, 2637].forEach((f, i) => bell(f, 0.4 + i * 0.05, 0.9, 0.15));
+    noise(0.36, 0.7, { filter: 'highpass', freq: 5000, gain: 0.08, attack: 0.05 });
   },
 
   /**
