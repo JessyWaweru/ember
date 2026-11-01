@@ -58,3 +58,20 @@ export function estimateBurn(name: string, kind: 'strength' | 'bodyweight' | 'ca
   const met = METS.find(([re]) => re.test(name))?.[1] ?? (kind === 'cardio' ? 7 : kind === 'strength' ? 5 : 4);
   return Math.round((met * 3.5 * weightKg * minutes) / 200);
 }
+
+// kcal per rep per kg of bodyweight, for bodyweight moves. Derived from the mechanical work of one rep (share of
+// bodyweight moved × distance) at ~20% muscular efficiency, plus the cost of holding position; e.g. a standard
+// push-up at 75 kg ≈ 0.4 kcal. Split squats/lunges are per leg, so both legs' reps are counted.
+const REP_KCAL_PER_KG: [RegExp, number][] = [
+  [/pull.?up|chin.?up/i, 0.01],
+  [/dip/i, 0.009],
+  [/split squat|lunge/i, 0.01],
+  [/sit.?up|crunch/i, 0.004],
+  [/push.?up/i, 0.005],
+];
+
+/** Burn from reps, for bodyweight exercises. `reps` is in standard reps (variations already weighted by difficulty). */
+export function estimateRepBurn(name: string, reps: number, weightKg: number) {
+  const perKg = REP_KCAL_PER_KG.find(([re]) => re.test(name))?.[1] ?? 0.005;
+  return Math.round(reps * perKg * weightKg);
+}

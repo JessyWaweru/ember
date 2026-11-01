@@ -10,11 +10,11 @@ import { C, Space } from '@/constants/theme';
 import { EXERCISE_CATALOG, KIND_LABEL } from '@/lib/catalog';
 import { useAddWorkout, useCreateExercise, useProfile } from '@/lib/data';
 import { todayKey } from '@/lib/dates';
-import { estimateBurn } from '@/lib/nutrition';
+import { estimateBurn, estimateRepBurn } from '@/lib/nutrition';
 import { rankExercise, type Rank } from '@/lib/tiers';
 import type { ExerciseKind, WorkoutLog, WorkoutSet } from '@/lib/types';
 import { useRankedExercises } from '@/lib/use-ranks';
-import { KNEE_FACTOR, nextEasier, partLabel, variantById, variantsFor, type Variant } from '@/lib/variants';
+import { KNEE_FACTOR, nextEasier, partLabel, standardReps, variantById, variantsFor, type Variant } from '@/lib/variants';
 
 type PartDraft = { reps: string; variant: string; knees: boolean };
 type SetDraft = PartDraft & { weight: string; then: PartDraft[] };
@@ -52,32 +52,44 @@ export default function LogWorkout() {
     updateSet(i, { then: [...sets[i].then, { reps: '', variant: next.variant ?? 'standard', knees: !!next.knees }] });
   }
 
+  // The sets as they'll be saved: empty parts dropped, variations only where the exercise has them.
+  function cleanSets(): WorkoutSet[] {
+    if (kind === 'cardio') return [];
+    return sets
+      .filter((s) => Number(s.reps) > 0)
+      .map((s): WorkoutSet => {
+        if (kind === 'strength') return { reps: Number(s.reps), weight: Number(s.weight) || 0 };
+        if (!variants) return { reps: Number(s.reps) };
+        const part = (p: PartDraft) => ({ reps: Number(p.reps), variant: p.variant, ...(p.knees ? { knees: true } : null) });
+        const then = s.then.filter((p) => Number(p.reps) > 0).map(part);
+        return { ...part(s), ...(then.length ? { then } : null) };
+      });
+  }
+
+  // Bodyweight moves estimate from your reps; everything else from how long you trained.
   function estimate() {
+    if (!current) return;
+    const weightKg = profile?.weight_kg || 75;
+    if (kind === 'bodyweight') {
+      const reps = cleanSets().reduce((sum, s) => sum + standardReps(s), 0);
+      if (!reps) return dialog('Add your sets', 'The estimate is based on your reps.');
+      return setCalories(String(estimateRepBurn(current.exercise.name, reps, weightKg)));
+    }
     const mins = Number(duration);
-    if (!current || !mins) return dialog('Add a duration', 'The estimate is based on how long you trained.');
-    setCalories(String(estimateBurn(current.exercise.name, current.exercise.kind, mins, profile?.weight_kg || 75)));
+    if (!mins) return dialog('Add a duration', 'The estimate is based on how long you trained.');
+    setCalories(String(estimateBurn(current.exercise.name, current.exercise.kind, mins, weightKg)));
   }
 
   async function save() {
     if (!current) return dialog('Pick an exercise');
-    const cleanSets = kind === 'cardio'
-      ? []
-      : sets
-          .filter((s) => Number(s.reps) > 0)
-          .map((s): WorkoutSet => {
-            if (kind === 'strength') return { reps: Number(s.reps), weight: Number(s.weight) || 0 };
-            if (!variants) return { reps: Number(s.reps) };
-            const part = (p: PartDraft) => ({ reps: Number(p.reps), variant: p.variant, ...(p.knees ? { knees: true } : null) });
-            const then = s.then.filter((p) => Number(p.reps) > 0).map(part);
-            return { ...part(s), ...(then.length ? { then } : null) };
-          });
-    if (kind !== 'cardio' && cleanSets.length === 0) return dialog('Add at least one set');
+    const saved = cleanSets();
+    if (kind !== 'cardio' && saved.length === 0) return dialog('Add at least one set');
     if (kind === 'cardio' && !Number(duration) && !Number(distance)) return dialog('Add a duration or distance');
 
     const log = {
       exercise_id: current.exercise.id,
       log_date: date,
-      sets: cleanSets,
+      sets: saved,
       duration_min: Number(duration) || null,
       distance_km: Number(distance) || null,
       calories_burned: Math.max(0, Math.round(Number(calories) || 0)),
@@ -229,7 +241,9 @@ export default function LogWorkout() {
             <Button title="Estimate" variant="secondary" onPress={estimate} style={{ height: 48 }} />
           </Row>
           <Txt variant="caption" color={C.textFaint}>
-            Type in what your watch says, or estimate from duration. Burned calories are added to your daily budget.
+            {kind === 'bodyweight'
+              ? 'Type in what your watch says, or estimate from your sets and bodyweight. Burned calories are added to your daily budget.'
+              : 'Type in what your watch says, or estimate from duration. Burned calories are added to your daily budget.'}
           </Txt>
 
           <Field label="Notes" placeholder="How did it feel?" value={notes} onChangeText={setNotes} />
