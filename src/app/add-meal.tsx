@@ -6,10 +6,10 @@ import { dialog } from '@/components/dialog';
 import { Button, Card, Chip, Field, Row, Screen, Segmented, SheetHeader, Txt } from '@/components/ui';
 import { C, Space } from '@/constants/theme';
 import { MEAL_TYPES } from '@/lib/catalog';
-import { useAddMeal, useRecentFoods } from '@/lib/data';
+import { useDeleteMeal, useMeals, useRecentFoods, useSaveMeal } from '@/lib/data';
 import { todayKey } from '@/lib/dates';
 import { searchFoods, type FoodResult } from '@/lib/food-search';
-import type { MealType } from '@/lib/types';
+import type { Meal, MealType } from '@/lib/types';
 
 function defaultMealType(): MealType {
   const h = new Date().getHours();
@@ -20,24 +20,49 @@ type Form = { name: string; calories: string; protein: string; carbs: string; fa
 const EMPTY: Form = { name: '', calories: '', protein: '', carbs: '', fat: '', servings: '1' };
 const r1 = (n: number) => String(Math.round(n * 10) / 10);
 
+// Logged meals store totals; the form works per serving.
+function formFromMeal(m: Meal): Form {
+  const s = m.servings || 1;
+  return {
+    name: m.name,
+    calories: String(Math.round(m.calories / s)),
+    protein: r1(m.protein / s),
+    carbs: r1(m.carbs / s),
+    fat: r1(m.fat / s),
+    servings: String(s),
+  };
+}
+
 export default function AddMeal() {
-  const params = useLocalSearchParams<{ date?: string; type?: MealType }>();
+  const params = useLocalSearchParams<{ date?: string; type?: MealType; id?: string }>();
   const date = params.date ?? todayKey();
+  const meals = useMeals(date);
+  const existing = meals.data?.find((m) => m.id === params.id);
   const [mealType, setMealType] = useState<MealType>(params.type ?? defaultMealType());
   const [tab, setTab] = useState<'manual' | 'search' | 'recent'>('manual');
   const [form, setForm] = useState<Form>(EMPTY);
-  const add = useAddMeal();
+  const save = useSaveMeal();
+  const del = useDeleteMeal();
+
+  // The meal may arrive after first render (e.g. opened from History), so prefill once it does.
+  const [prefilledId, setPrefilledId] = useState<string>();
+  if (existing && prefilledId !== existing.id) {
+    setPrefilledId(existing.id);
+    setForm(formFromMeal(existing));
+    setMealType(existing.meal_type);
+  }
 
   const set = (k: keyof Form) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
 
-  async function save() {
+  async function submit() {
     const servings = Number(form.servings) || 1;
     const calories = Number(form.calories);
     if (!form.name.trim() || !Number.isFinite(calories) || calories < 0 || form.calories === '') {
       return dialog('Missing info', 'Add a name and calories.');
     }
     try {
-      await add.mutateAsync({
+      await save.mutateAsync({
+        id: existing?.id,
         log_date: date,
         meal_type: mealType,
         name: form.name.trim(),
@@ -53,9 +78,30 @@ export default function AddMeal() {
     }
   }
 
+  function remove() {
+    if (!existing) return;
+    dialog('Delete entry?', existing.name, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => del.mutate(existing.id, { onSuccess: () => router.back() }),
+      },
+    ]);
+  }
+
+  if (params.id && !existing) {
+    return (
+      <Screen>
+        <SheetHeader title="Edit food" />
+        {meals.isPending ? <ActivityIndicator color={C.accent} /> : <Txt color={C.textDim}>This entry no longer exists.</Txt>}
+      </Screen>
+    );
+  }
+
   return (
     <Screen>
-      <SheetHeader title="Log food" />
+      <SheetHeader title={existing ? 'Edit food' : 'Log food'} />
       <Row style={{ flexWrap: 'wrap' }}>
         {MEAL_TYPES.map((m) => (
           <Chip key={m.type} label={`${m.emoji} ${m.label}`} active={mealType === m.type} onPress={() => setMealType(m.type)} />
@@ -93,7 +139,8 @@ export default function AddMeal() {
             <Field style={{ flex: 1 }} label="Carbs" suffix="g" keyboardType="decimal-pad" value={form.carbs} onChangeText={set('carbs')} />
             <Field style={{ flex: 1 }} label="Fat" suffix="g" keyboardType="decimal-pad" value={form.fat} onChangeText={set('fat')} />
           </Row>
-          <Button title="Add" onPress={save} loading={add.isPending} />
+          <Button title={existing ? 'Save' : 'Add'} onPress={submit} loading={save.isPending} />
+          {existing ? <Button title="Delete" variant="danger" onPress={remove} loading={del.isPending} /> : null}
         </Card>
       )}
     </Screen>
@@ -190,28 +237,14 @@ function RecentTab({ onPick }: { onPick: (f: Form) => void }) {
   if (data.length === 0) return <Txt color={C.textDim}>Foods you log will show up here for one-tap re-logging.</Txt>;
   return (
     <View style={{ gap: Space.sm }}>
-      {data.map((m) => {
-        const s = m.servings || 1;
-        return (
-          <Pressable
-            key={m.id}
-            onPress={() =>
-              onPick({
-                name: m.name,
-                calories: String(Math.round(m.calories / s)),
-                protein: r1(m.protein / s),
-                carbs: r1(m.carbs / s),
-                fat: r1(m.fat / s),
-                servings: String(s),
-              })
-            }>
-            <Card style={{ flexDirection: 'row', justifyContent: 'space-between', padding: Space.md }}>
-              <Txt numberOfLines={1} style={{ flex: 1, fontWeight: '600' }}>{m.name}</Txt>
-              <Txt color={C.textDim}>{m.calories} kcal</Txt>
-            </Card>
-          </Pressable>
-        );
-      })}
+      {data.map((m) => (
+        <Pressable key={m.id} onPress={() => onPick(formFromMeal(m))}>
+          <Card style={{ flexDirection: 'row', justifyContent: 'space-between', padding: Space.md }}>
+            <Txt numberOfLines={1} style={{ flex: 1, fontWeight: '600' }}>{m.name}</Txt>
+            <Txt color={C.textDim}>{m.calories} kcal</Txt>
+          </Card>
+        </Pressable>
+      ))}
     </View>
   );
 }

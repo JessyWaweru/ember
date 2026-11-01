@@ -90,10 +90,13 @@ export function useRecentFoods() {
   });
 }
 
-export function useAddMeal() {
+export function useSaveMeal() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (meal: NewMeal) => unwrap(supabase.from('meals').insert(meal)),
+    mutationFn: ({ id, ...meal }: NewMeal & { id?: string }) =>
+      id
+        ? unwrap(supabase.from('meals').update(meal).eq('id', id))
+        : unwrap(supabase.from('meals').insert(meal)),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['meals'] }),
   });
 }

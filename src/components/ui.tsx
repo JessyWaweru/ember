@@ -54,7 +54,8 @@ export function Screen({
 }) {
   const pad = { paddingHorizontal: Space.lg, paddingBottom: (tabs ? BottomTabInset : 0) + Space.xxl };
   return (
-    <SafeAreaView style={styles.screen} edges={tabs ? ['top'] : ['bottom']}>
+    // Sheets sit below the status bar natively, but on web they render full-screen and need the top inset too.
+    <SafeAreaView style={styles.screen} edges={tabs ? ['top'] : Platform.OS === 'web' ? ['top', 'bottom'] : ['bottom']}>
       {scroll ? (
         <ScrollView
           contentContainerStyle={[pad, { gap: Space.lg, paddingTop: Space.md }, style]}

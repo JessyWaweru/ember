@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { Pressable, View } from 'react-native';
 
 import { dialog } from '@/components/dialog';
@@ -16,7 +17,10 @@ export function MealRow({ meal }: { meal: Meal }) {
     ]);
 
   return (
-    <Pressable onPress={confirm} onLongPress={confirm} style={({ pressed }) => ({ opacity: pressed || del.isPending ? 0.6 : 1 })}>
+    <Pressable
+      onPress={() => router.push({ pathname: '/add-meal', params: { date: meal.log_date, id: meal.id } })}
+      onLongPress={confirm}
+style={({ pressed }) => ({ opacity: pressed || del.isPending ? 0.6 : 1 })}>
       <Row style={{ justifyContent: 'space-between', paddingVertical: Space.sm }}>
         <View style={{ flex: 1, gap: 2 }}>
           <Txt numberOfLines={1} style={{ fontWeight: '600' }}>{meal.name}</Txt>
