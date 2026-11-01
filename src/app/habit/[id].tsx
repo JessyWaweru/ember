@@ -3,7 +3,7 @@ import { useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, View, type ScrollViewInstance } from 'react-native';
 
 import { dialog } from '@/components/dialog';
-import { statusColor } from '@/components/habit-card';
+import { isBlank, statusColor } from '@/components/habit-card';
 import { Button, Card, IconButton, Loading, Row, Screen, SectionHeader, Txt } from '@/components/ui';
 import { C, Space } from '@/constants/theme';
 import { pauseSpan } from '@/components/pause-banner';
@@ -69,8 +69,10 @@ function MonthCalendar({ habit, logs }: { habit: Habit; logs: Map<string, HabitL
               <View
                 style={{
                   flex: 1, borderRadius: 10, alignItems: 'center', justifyContent: 'center',
-                  backgroundColor: filled ? statusColor(s, habit.color) : s === 'off' ? 'transparent' : C.cardHigh,
-                  borderWidth: key === today ? 1.5 : 0, borderColor: C.text,
+                  backgroundColor: filled ? statusColor(s, habit.color) : s === 'skipped' ? C.cardHigh : 'transparent',
+                  // Today gets a bright ring; other unfinished days are an empty outline.
+                  borderWidth: key === today ? 1.5 : s === 'open' ? 1 : 0,
+                  borderColor: key === today ? C.text : C.border,
                 }}>
                 <Txt variant="caption" color={filled ? '#0B0B0D' : s === 'off' ? C.textFaint : C.textDim} style={{ fontWeight: '700' }}>
                   {logs.get(key)?.pause ? '⏸' : s === 'skipped' ? '–' : String(fromDateKey(key).getDate())}
@@ -115,6 +117,8 @@ function YearHeatmap({ habit, logs }: { habit: Habit; logs: Map<string, HabitLog
                     style={{
                       width: 11, height: 11, borderRadius: 3,
                       backgroundColor: partial ? habit.color : statusColor(s, habit.color),
+                      borderWidth: !partial && isBlank(s) ? 1 : 0,
+                      borderColor: C.border,
                       opacity: partial ? 0.25 + 0.5 * (log!.count / habit.target_count) : s === 'off' ? 0.4 : 1,
                     }}
                   />

@@ -10,9 +10,11 @@ import type { Habit, HabitLog } from '@/lib/types';
 
 import { Icon, Ring, Row, tap, Txt } from './ui';
 
+// Days you didn't complete stay empty: just an outline, no fill.
 export function statusColor(status: DayStatus, color: string) {
-  return status === 'done' ? color : status === 'failed' ? C.danger : status === 'skipped' ? C.textFaint : C.cardHigh;
+  return status === 'done' ? color : status === 'failed' ? C.danger : status === 'skipped' ? C.textFaint : 'transparent';
 }
+export const isBlank = (status: DayStatus) => status === 'open' || status === 'off';
 
 export function HabitCard({ habit, logs, date }: { habit: Habit; logs: Map<string, HabitLog>; date: string }) {
   const setLog = useSetHabitLog();
@@ -106,7 +108,12 @@ export function HabitCard({ habit, logs, date }: { habit: Habit; logs: Map<strin
               const s = dayStatus(habit, logs.get(d), d);
               return (
                 <View key={d} style={{ alignItems: 'center', gap: 2 }}>
-                  <View style={{ width: 14, height: 14, borderRadius: 4, backgroundColor: statusColor(s, habit.color), opacity: s === 'off' ? 0.35 : 1 }} />
+                  <View
+                    style={{
+                      width: 14, height: 14, borderRadius: 4, backgroundColor: statusColor(s, habit.color),
+                      borderWidth: isBlank(s) ? 1 : 0, borderColor: C.border, opacity: s === 'off' ? 0.35 : 1,
+                    }}
+                  />
                   <Txt style={{ fontSize: 8, color: C.textFaint }}>{WEEKDAY_LETTERS[weekday(d)]}</Txt>
                 </View>
               );
