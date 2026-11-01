@@ -170,7 +170,8 @@ export default function HabitEdit() {
         <Field label="…or type any emoji" value={form.emoji} maxLength={8} onChangeText={(v) => set('emoji', v.trim())} />
 
         <Txt variant="caption" color={C.textDim}>Color</Txt>
-        <Row style={{ justifyContent: 'space-between' }}>
+        {/* Swatches share the row, so the custom one always fits. */}
+        <Row gap={6}>
           {HABIT_COLORS.map((c) => (
             <Pressable
               key={c}
@@ -178,14 +179,14 @@ export default function HabitEdit() {
                 set('color', c);
                 setCustomColor(false);
               }}
-              style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: c, borderWidth: form.color === c ? 3 : 0, borderColor: C.text }}
+              style={{ flex: 1, aspectRatio: 1, maxWidth: 36, borderRadius: 18, backgroundColor: c, borderWidth: form.color === c ? 3 : 0, borderColor: C.text }}
             />
           ))}
           {/* Any colour: shows your custom pick, or a palette icon until you have one. */}
           <Pressable
             onPress={() => setCustomColor(!customColor)}
             style={{
-              width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center',
+              flex: 1, aspectRatio: 1, maxWidth: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center',
               backgroundColor: isCustom ? form.color : C.cardHigh,
               borderWidth: isCustom || customColor ? 3 : 0, borderColor: C.text,
             }}>

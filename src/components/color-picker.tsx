@@ -42,7 +42,7 @@ export function ColorPicker({ value, onChange }: { value: string; onChange: (hex
       {width > 0 ? (
         <>
           <View
-            style={[{ height: SQUARE_H, borderRadius: Radius.sm, overflow: 'hidden' }, noScroll]}
+            style={[{ height: SQUARE_H }, noScroll]}
             {...drag((x, y) => apply({ ...hsv, s: clamp(x / width), v: clamp(1 - y / SQUARE_H) }))}>
             <View pointerEvents="none">
               <Svg width={width} height={SQUARE_H}>
@@ -56,15 +56,15 @@ export function ColorPicker({ value, onChange }: { value: string; onChange: (hex
                     <Stop offset="1" stopColor="#000" stopOpacity="1" />
                   </LinearGradient>
                 </Defs>
-                <Rect width={width} height={SQUARE_H} fill={pureHue} />
-                <Rect width={width} height={SQUARE_H} fill="url(#sat)" />
-                <Rect width={width} height={SQUARE_H} fill="url(#val)" />
+                <Rect width={width} height={SQUARE_H} rx={Radius.sm} fill={pureHue} />
+                <Rect width={width} height={SQUARE_H} rx={Radius.sm} fill="url(#sat)" />
+                <Rect width={width} height={SQUARE_H} rx={Radius.sm} fill="url(#val)" />
               </Svg>
             </View>
             <Thumb left={hsv.s * width} top={(1 - hsv.v) * SQUARE_H} color={hsvToHex(hsv)} />
           </View>
 
-          <View style={[{ height: HUE_H, borderRadius: HUE_H / 2, overflow: 'hidden' }, noScroll]} {...drag((x) => apply({ ...hsv, h: clamp(x / width) * 359.9 }))}>
+          <View style={[{ height: HUE_H }, noScroll]} {...drag((x) => apply({ ...hsv, h: clamp(x / width) * 359.9 }))}>
             <View pointerEvents="none">
               <Svg width={width} height={HUE_H}>
                 <Defs>
@@ -74,7 +74,7 @@ export function ColorPicker({ value, onChange }: { value: string; onChange: (hex
                     ))}
                   </LinearGradient>
                 </Defs>
-                <Rect width={width} height={HUE_H} fill="url(#hue)" />
+                <Rect width={width} height={HUE_H} rx={HUE_H / 2} fill="url(#hue)" />
               </Svg>
             </View>
             <Thumb left={(hsv.h / 360) * width} top={HUE_H / 2} color={pureHue} />
