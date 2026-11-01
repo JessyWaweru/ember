@@ -63,19 +63,19 @@ function MonthCalendar({ habit, logs }: { habit: Habit; logs: Map<string, HabitL
         {cells.map((key, i) => {
           if (!key) return <View key={`e${i}`} style={{ width: `${100 / 7}%`, aspectRatio: 1 }} />;
           const s = dayStatus(habit, logs.get(key), key);
-          const filled = s === 'done' || s === 'failed';
+          const filled = s === 'done';
           return (
             <Pressable key={key} onPress={() => toggle(key)} style={{ width: `${100 / 7}%`, aspectRatio: 1, padding: 3 }}>
               <View
                 style={{
                   flex: 1, borderRadius: 10, alignItems: 'center', justifyContent: 'center',
-                  backgroundColor: filled ? statusColor(s, habit.color) : s === 'skipped' ? C.cardHigh : 'transparent',
+                  backgroundColor: statusColor(s, habit.color),
                   // Today gets a bright ring; other unfinished days are an empty outline.
-                  borderWidth: key === today ? 1.5 : s === 'open' ? 1 : 0,
+                  borderWidth: key === today ? 1.5 : s !== 'done' && s !== 'off' ? 1 : 0,
                   borderColor: key === today ? C.text : C.border,
                 }}>
                 <Txt variant="caption" color={filled ? '#0B0B0D' : s === 'off' ? C.textFaint : C.textDim} style={{ fontWeight: '700' }}>
-                  {logs.get(key)?.pause ? '⏸' : s === 'skipped' ? '–' : String(fromDateKey(key).getDate())}
+                  {logs.get(key)?.pause ? '⏸' : s === 'skipped' ? '–' : s === 'failed' ? '✗' : String(fromDateKey(key).getDate())}
                 </Txt>
               </View>
             </Pressable>
@@ -84,10 +84,10 @@ function MonthCalendar({ habit, logs }: { habit: Habit; logs: Map<string, HabitL
       </View>
       <Txt variant="caption" color={C.textFaint}>
         {habit.auto
-          ? 'Filled in automatically. ⏸ = paused, – = skipped.'
+          ? 'Filled in automatically. ✗ = slip, – = skipped, ⏸ = paused.'
           : habit.kind === 'bad'
-            ? 'Tap a day to log or remove a slip. ⏸ = paused.'
-            : 'Tap a past day to mark it done or undo it. ⏸ = paused.'}
+            ? 'Tap a day to log or remove a slip. ✗ = slip, – = skipped, ⏸ = paused.'
+            : 'Tap a past day to mark it done or undo it. – = skipped, ⏸ = paused.'}
       </Txt>
     </Card>
   );

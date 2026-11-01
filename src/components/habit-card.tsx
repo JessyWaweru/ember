@@ -10,11 +10,11 @@ import type { Habit, HabitLog } from '@/lib/types';
 
 import { Icon, Ring, Row, tap, Txt } from './ui';
 
-// Days you didn't complete stay empty: just an outline, no fill.
+// Only completed days are filled; everything else (missed, slipped, skipped) is an empty outline.
 export function statusColor(status: DayStatus, color: string) {
-  return status === 'done' ? color : status === 'failed' ? C.danger : status === 'skipped' ? C.textFaint : 'transparent';
+  return status === 'done' ? color : 'transparent';
 }
-export const isBlank = (status: DayStatus) => status === 'open' || status === 'off';
+export const isBlank = (status: DayStatus) => status !== 'done';
 
 export function HabitCard({ habit, logs, date }: { habit: Habit; logs: Map<string, HabitLog>; date: string }) {
   const setLog = useSetHabitLog();
