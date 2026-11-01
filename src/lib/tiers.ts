@@ -115,6 +115,8 @@ export type Rank = {
   progress: number;
   /** Continuous score: tierIndex + fraction, handy for averaging and rank-up checks */
   score: number;
+  /** The raw (bodyweight-adjusted) metric, for comparing performances finer than divisions */
+  value: number;
   metricLabel: string;
   current: string;
   next: string | null;
@@ -129,7 +131,7 @@ export function rankExercise(exercise: Exercise, logs: WorkoutLog[], bodyweightK
   const tier = TIERS[tierIndex];
   if (tierIndex === TIERS.length - 1) {
     return {
-      tierIndex, tier, division: null, title: tier.name, progress: 1, score: tierIndex,
+      tierIndex, tier, division: null, title: tier.name, progress: 1, score: tierIndex, value: m.value,
       metricLabel: m.label, current: m.format(m.value), next: null,
     };
   }
@@ -147,10 +149,23 @@ export function rankExercise(exercise: Exercise, logs: WorkoutLog[], bodyweightK
     title: `${tier.name} ${DIVISIONS[divIndex]}`,
     progress: (m.value - divStart) / (divEnd - divStart),
     score: tierIndex + divIndex / 3,
+    value: m.value,
     metricLabel: m.label,
     current: m.format(m.value),
     next: m.format(divEnd),
   };
+}
+
+export type SessionRank = { log: WorkoutLog; /** what this session alone earns */ own: Rank; /** your rank after it */ best: Rank };
+
+/** Each session oldest → newest, with its own rank and your best rank up to that point. */
+export function rankHistory(exercise: Exercise, logs: WorkoutLog[], bodyweightKg: number | null): SessionRank[] {
+  const chrono = [...logs].sort((a, b) => a.log_date.localeCompare(b.log_date) || a.created_at.localeCompare(b.created_at));
+  return chrono.map((log, i) => ({
+    log,
+    own: rankExercise(exercise, [log], bodyweightKg),
+    best: rankExercise(exercise, chrono.slice(0, i + 1), bodyweightKg),
+  }));
 }
 
 /** Overall athlete rank: the average of your exercise ranks. */
