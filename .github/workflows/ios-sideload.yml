@@ -1,6 +1,6 @@
 # Builds an unsigned Ember.ipa on GitHub's macOS runners (no Mac or paid Apple account needed).
 # Install it with SideStore/AltStore, which signs it with your free Apple ID.
-# Run it from the repo's Actions tab → "iOS sideload build" → Run workflow, then download the artifact.
+# Run it from the repo's Actions tab → "iOS sideload build" → Run workflow (or: gh workflow run ios-sideload.yml), then download the artifact.
 name: iOS sideload build
 
 on:
