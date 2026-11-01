@@ -105,6 +105,34 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "build": {
+          "experimental": {
+            "ios": {
+              "appExtensions": [
+                {
+                  "targetName": "ExpoWidgetsTarget",
+                  "bundleIdentifier": "com.jessy.ember.ExpoWidgetsTarget",
+                  "entitlements": {
+                    "com.apple.security.application-groups": [
+                      "group.com.jessy.ember"
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "projectId": "ec42e9e0-fde0-4f39-938c-bbdd9a139aad"
+      }
+    },
+    "owner": "bryanjessy"
   }
 }
