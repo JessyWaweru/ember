@@ -1,15 +1,16 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, View } from 'react-native';
 
 import { dialog } from '@/components/dialog';
-import { Button, Card, Chip, Field, Row, Screen, Segmented, SheetHeader, Txt } from '@/components/ui';
+import { Button, Card, Chip, Field, IconButton, Row, Screen, Segmented, SheetHeader, Txt } from '@/components/ui';
 import { C, Space } from '@/constants/theme';
 import { MEAL_TYPES } from '@/lib/catalog';
 import { useDeleteMeal, useMeals, useRecentFoods, useSaveMeal } from '@/lib/data';
 import { todayKey } from '@/lib/dates';
 import { searchBasicFoods, type BasicFood } from '@/lib/basic-foods';
 import { searchFoods, type FoodResult } from '@/lib/food-search';
+import { analyzeMealPhoto, pickMealPhoto, type PhotoItem } from '@/lib/meal-photo';
 import type { Meal, MealType } from '@/lib/types';
 import { sound } from '@/lib/sound';
 
@@ -41,7 +42,7 @@ export default function AddMeal() {
   const meals = useMeals(date);
   const existing = meals.data?.find((m) => m.id === params.id);
   const [mealType, setMealType] = useState<MealType>(params.type ?? defaultMealType());
-  const [tab, setTab] = useState<'manual' | 'search' | 'recent'>('manual');
+  const [tab, setTab] = useState<'manual' | 'photo' | 'search' | 'recent'>('manual');
   const [form, setForm] = useState<Form>(EMPTY);
   const save = useSaveMeal();
   const del = useDeleteMeal();
@@ -113,10 +114,22 @@ export default function AddMeal() {
       <Segmented
         value={tab}
         onChange={setTab}
-        options={[{ value: 'manual', label: 'Manual' }, { value: 'search', label: 'Search' }, { value: 'recent', label: 'Recent' }]}
+        options={[
+          { value: 'manual', label: 'Manual' },
+          { value: 'photo', label: '📷 Photo' },
+          { value: 'search', label: 'Search' },
+          { value: 'recent', label: 'Recent' },
+        ]}
       />
 
-      {tab === 'search' ? (
+      {tab === 'photo' ? (
+        <PhotoTab
+          onPick={(f) => {
+            setForm(f);
+            setTab('manual');
+          }}
+        />
+      ) : tab === 'search' ? (
         <SearchTab
           onPick={(f) => {
             setForm(f);
@@ -147,6 +160,151 @@ export default function AddMeal() {
         </Card>
       )}
     </Screen>
+  );
+}
+
+const ANALYSING_LINES = ['Spotting the foods…', 'Judging the portions…', 'Checking for hidden oils…', 'Crunching the numbers…'];
+
+/** Snap a meal → AI breakdown by item → adjust portions → fills the form for a final check. */
+function PhotoTab({ onPick }: { onPick: (f: Form) => void }) {
+  const [photo, setPhoto] = useState<{ uri: string; base64: string } | null>(null);
+  const [hint, setHint] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [line, setLine] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const [mealName, setMealName] = useState('');
+  const [notes, setNotes] = useState('');
+  const [items, setItems] = useState<(PhotoItem & { gramsText: string })[] | null>(null);
+
+  useEffect(() => {
+    if (!busy) return;
+    const t = setInterval(() => setLine((l) => (l + 1) % ANALYSING_LINES.length), 1500);
+    return () => clearInterval(t);
+  }, [busy]);
+
+  async function analyse(p: { uri: string; base64: string }) {
+    setBusy(true);
+    setError(null);
+    setItems(null);
+    setLine(0);
+    try {
+      const est = await analyzeMealPhoto(p.base64, hint);
+      setMealName(est.mealName);
+      setNotes(est.notes);
+      setItems(est.items.map((it) => ({ ...it, gramsText: String(it.grams) })));
+      sound.success();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function snap(from: 'camera' | 'library') {
+    try {
+      const p = await pickMealPhoto(from);
+      if (!p) return;
+      setPhoto(p);
+      await analyse(p);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+
+  const live = (items ?? []).map((it) => {
+    const g = Number(it.gramsText) || 0;
+    const f = g / 100;
+    return { ...it, g, kcal: it.per100g.calories * f, p: it.per100g.protein * f, c: it.per100g.carbs * f, fat: it.per100g.fat * f };
+  });
+  const total = live.reduce((t, x) => ({ kcal: t.kcal + x.kcal, p: t.p + x.p, c: t.c + x.c, f: t.f + x.fat }), { kcal: 0, p: 0, c: 0, f: 0 });
+
+  if (!photo) {
+    return (
+      <Card style={{ gap: Space.md }}>
+        <Txt variant="heading">Snap your meal</Txt>
+        <Txt color={C.textDim}>
+          AI spots each food, estimates its portion, and Ember works out the calories (from USDA data where it can). You check it before saving.
+        </Txt>
+        <Field label="Note for the AI (optional)" placeholder="e.g. cooked in butter, no sugar, half eaten" value={hint} onChangeText={setHint} />
+        <Button title="📷  Take photo" onPress={() => snap('camera')} />
+        <Button title="Choose from library" variant="secondary" onPress={() => snap('library')} />
+        {error ? <Txt color={C.danger}>{error}</Txt> : null}
+        <Txt variant="caption" color={C.textFaint}>Best results: shoot from above, whole plate in frame, a fork or hand in shot for scale.</Txt>
+      </Card>
+    );
+  }
+
+  return (
+    <View style={{ gap: Space.md }}>
+      <Image source={{ uri: photo.uri }} style={{ width: '100%', aspectRatio: 4 / 3, borderRadius: 16, backgroundColor: C.card }} resizeMode="cover" />
+
+      {busy ? (
+        <Card style={{ alignItems: 'center', gap: Space.md, paddingVertical: Space.xl }}>
+          <ActivityIndicator color={C.accent} />
+          <Txt color={C.textDim}>{ANALYSING_LINES[line]}</Txt>
+        </Card>
+      ) : null}
+
+      {error && !busy ? (
+        <Card style={{ gap: Space.md }}>
+          <Txt color={C.danger}>{error}</Txt>
+          <Button title="Try again" onPress={() => analyse(photo)} />
+        </Card>
+      ) : null}
+
+      {items && !busy ? (
+        <Card style={{ gap: Space.md }}>
+          <Field label="Meal" value={mealName} onChangeText={setMealName} />
+          {live.map((it, i) => (
+            <View key={i} style={{ gap: 4 }}>
+              <Row gap={Space.sm}>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Txt style={{ fontWeight: '700' }} numberOfLines={1}>{it.name}</Txt>
+                  <Txt variant="caption" color={C.textDim}>
+                    {`${Math.round(it.kcal)} kcal · P ${r1(it.p)} C ${r1(it.c)} F ${r1(it.fat)}`}
+                    {it.confidence === 'low' ? ' · unsure' : ''}
+                    {it.source === 'usda' ? ' · USDA' : ''}
+                  </Txt>
+                </View>
+                <Field
+                  style={{ width: 92 }}
+                  suffix="g"
+                  keyboardType="decimal-pad"
+                  value={it.gramsText}
+                  onChangeText={(v) => setItems(items.map((x, j) => (j === i ? { ...x, gramsText: v } : x)))}
+                />
+                <IconButton icon="minus" onPress={() => setItems(items.filter((_, j) => j !== i))} />
+              </Row>
+            </View>
+          ))}
+          <Row style={{ justifyContent: 'space-between' }}>
+            <Txt variant="label">{`${Math.round(total.kcal)} kcal`}</Txt>
+            <Txt color={C.textDim}>{`P ${r1(total.p)}g · C ${r1(total.c)}g · F ${r1(total.f)}g`}</Txt>
+          </Row>
+          {notes ? <Txt variant="caption" color={C.textFaint}>{notes}</Txt> : null}
+          <Button
+            title="Use these"
+            disabled={live.length === 0}
+            onPress={() =>
+              onPick({
+                name: `📷 ${mealName.trim() || 'Meal'}`,
+                calories: String(Math.round(total.kcal)),
+                protein: r1(total.p),
+                carbs: r1(total.c),
+                fat: r1(total.f),
+                servings: '1',
+              })
+            }
+          />
+          <Txt variant="caption" color={C.textFaint}>Adjust any portion that looks off: the totals update as you type.</Txt>
+        </Card>
+      ) : null}
+
+      <Row gap={Space.sm}>
+        <Button title="Retake" variant="secondary" style={{ flex: 1 }} onPress={() => snap('camera')} />
+        <Button title="Pick another" variant="ghost" style={{ flex: 1 }} onPress={() => snap('library')} />
+      </Row>
+    </View>
   );
 }
 
