@@ -5,7 +5,9 @@ import { BASIC_FOODS } from '@/lib/basic-foods';
 // item matches one, since models judge portions far better than they recall nutrition tables.
 // Key: GEMINI_API_KEY, an EAS environment variable (sensitive) deployed with `eas deploy --environment production`.
 
-const MODEL = 'gemini-3.8-flash';
+// Most accurate first; free-tier traffic is the first to be turned away when a model is busy, so fall back.
+const MODELS = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash-lite'];
+const BUSY = new Set([429, 500, 503]);
 const ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/interactions';
 const MAX_IMAGE_B64 = 8_000_000; // ~6 MB of JPEG; the app sends ~0.3 MB
 
@@ -97,31 +99,39 @@ export async function POST(request: Request) {
   if (image.length > MAX_IMAGE_B64) return fail(413, 'That photo is too large.');
 
   const note = typeof hint === 'string' && hint.trim() ? `User's note: ${hint.trim().slice(0, 300)}` : 'No note from the user.';
-  let res: Response;
-  try {
-    res = await fetch(ENDPOINT, {
-      method: 'POST',
-      signal: AbortSignal.timeout(60_000),
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-      body: JSON.stringify({
-        model: MODEL,
-        system_instruction: INSTRUCTIONS,
-        input: [
-          { type: 'text', text: `Estimate this meal. ${note}` },
-          { type: 'image', data: image, mime_type: 'image/jpeg' },
-        ],
-        response_format: { type: 'text', mime_type: 'application/json', schema: SCHEMA },
-      }),
-    });
-  } catch {
-    return fail(504, 'The AI took too long to answer. Try again.');
+  const payload = {
+    system_instruction: INSTRUCTIONS,
+    input: [
+      { type: 'text', text: `Estimate this meal. ${note}` },
+      { type: 'image', data: image, mime_type: 'image/jpeg' },
+    ],
+    response_format: { type: 'text', mime_type: 'application/json', schema: SCHEMA },
+  };
+
+  let res: Response | null = null;
+  let body: Record<string, unknown> = {};
+  for (const model of MODELS) {
+    try {
+      res = await fetch(ENDPOINT, {
+        method: 'POST',
+        signal: AbortSignal.timeout(45_000),
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+        body: JSON.stringify({ model, ...payload }),
+      });
+    } catch {
+      res = null; // timed out: try the next model
+      continue;
+    }
+    body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    if (res.ok || !BUSY.has(res.status)) break;
+    console.warn('Gemini busy, falling back', model, res.status);
   }
 
-  const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!res) return fail(504, 'The AI took too long to answer. Try again.');
   if (!res.ok) {
-    if (res.status === 429) return fail(429, 'Today’s free AI limit is used up. Try again later, or log it by search.');
     const detail = (body.error as { message?: string } | undefined)?.message;
     console.error('Gemini error', res.status, detail);
+    if (BUSY.has(res.status)) return fail(503, 'The AI is overloaded right now. Try again in a minute, or log it by search.');
     return fail(502, 'The AI couldn’t read that photo. Try again.');
   }
 
