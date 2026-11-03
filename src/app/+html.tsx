@@ -136,6 +136,32 @@ const BOOT = `
   </div>
 `;
 
+// After a deploy the old code files are gone. A home-screen app can still open an old cached copy of this page, whose
+// scripts then 404 and leave it stuck on the boot screen. When one of the app's files fails to load, fetch the page
+// fresh once (a new ?v= skips the cache); sessionStorage stops it from looping if the server itself is down.
+const RECOVER = `
+  (function () {
+    var url = new URL(location.href);
+    if (url.searchParams.has('v')) {
+      url.searchParams.delete('v');
+      history.replaceState(null, '', url);
+    }
+    addEventListener('error', function (e) {
+      var src = e.target && (e.target.src || e.target.href);
+      if (!src || src.indexOf('/_expo/') < 0) return;
+      try {
+        if (sessionStorage.getItem('ember-recovered')) return;
+        sessionStorage.setItem('ember-recovered', '1');
+      } catch (_) {}
+      url.searchParams.set('v', Date.now());
+      location.replace(url);
+    }, true);
+    addEventListener('load', function () {
+      setTimeout(function () { try { sessionStorage.removeItem('ember-recovered'); } catch (_) {} }, 10000);
+    });
+  })();
+`;
+
 export default function Root({ children }: PropsWithChildren) {
   // Expo's own tags: stylesheets and preloads for <head>, the app's scripts for <body>. Leaving these out drops the app.
   const { htmlAttributes, bodyAttributes, headNodes, bodyNodes } = useServerDocumentContext();
@@ -157,6 +183,7 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="apple-mobile-web-app-title" content="Ember" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 
+        <script dangerouslySetInnerHTML={{ __html: RECOVER }} />
         <ScrollViewStyleReset />
         <style id="ember-reset" dangerouslySetInnerHTML={{ __html: STYLES }} />
         {headNodes}
