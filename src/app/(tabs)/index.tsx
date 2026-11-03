@@ -74,7 +74,7 @@ export default function Today() {
       <DaySwitcher date={date} onChange={setDate} />
 
       <Card style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: Space.xl }}>
-        <View style={{ gap: Space.xs }}>
+        <View style={{ gap: Space.xs, flexShrink: 1 }}>
           <Txt variant="hero" color={left < 0 ? C.danger : C.text}>{Math.abs(left)}</Txt>
           <Txt color={C.textDim}>{left < 0 ? 'Calories over' : 'Calories left'}</Txt>
           <Row style={{ marginTop: Space.sm }} gap={Space.lg}>
@@ -88,7 +88,8 @@ export default function Today() {
             </View>
             <View>
               <Txt variant="label">{goal}</Txt>
-              <Txt variant="caption" color={C.textDim}>{carried ? `goal · +${carried} carried` : 'goal'}</Txt>
+              <Txt variant="caption" color={C.textDim}>goal</Txt>
+              {carried ? <Txt variant="caption" color={C.accent} style={{ fontSize: 11 }}>{`+${carried} carried`}</Txt> : null}
             </View>
           </Row>
         </View>
