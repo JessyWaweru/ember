@@ -169,10 +169,13 @@ export function useWorkouts() {
   });
 }
 
-export function useAddWorkout() {
+export function useSaveWorkout() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (log: NewWorkoutLog) => unwrap(supabase.from('workout_logs').insert(log)),
+    mutationFn: ({ id, ...log }: NewWorkoutLog & { id?: string }) =>
+      id
+        ? unwrap(supabase.from('workout_logs').update(log).eq('id', id))
+        : unwrap(supabase.from('workout_logs').insert(log)),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['workouts'] }),
   });
 }

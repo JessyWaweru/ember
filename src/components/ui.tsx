@@ -95,10 +95,15 @@ export function Screen({
   );
 }
 
-export function Card({ children, style, onPress }: { children: ReactNode; style?: StyleProp<ViewStyle>; onPress?: () => void }) {
+export function Card({ children, style, onPress, onLongPress }: {
+  children: ReactNode;
+  style?: StyleProp<ViewStyle>;
+  onPress?: () => void;
+  onLongPress?: () => void;
+}) {
   if (onPress) {
     return (
-      <Pressable onPress={onPress} style={({ pressed }) => [styles.card, pressed && { opacity: 0.8 }, style]}>
+      <Pressable onPress={onPress} onLongPress={onLongPress} style={({ pressed }) => [styles.card, pressed && { opacity: 0.8 }, style]}>
         {children}
       </Pressable>
     );

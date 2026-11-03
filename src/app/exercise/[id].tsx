@@ -89,7 +89,8 @@ export default function ExerciseDetail() {
           <Card
             key={w.id}
             style={{ padding: Space.md }}
-            onPress={() =>
+            onPress={() => router.push({ pathname: '/log-workout', params: { id: w.id } })}
+            onLongPress={() =>
               dialog('Delete this session?', `${prettyDay(w.log_date)} · ${describeWorkout(exercise.kind, w)}`, [
                 { text: 'Cancel', style: 'cancel' },
                 { text: 'Delete', style: 'destructive', onPress: () => del.mutate(w.id, { onSuccess: sound.remove }) },
@@ -111,7 +112,7 @@ export default function ExerciseDetail() {
           </Card>
         );
       })}
-      {logs.length ? <Txt variant="caption" color={C.textFaint}>Tap a session to delete it.</Txt> : null}
+      {logs.length ? <Txt variant="caption" color={C.textFaint}>Tap a session to edit it, hold to delete.</Txt> : null}
     </Screen>
   );
 }

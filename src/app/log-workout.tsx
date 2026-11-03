@@ -5,14 +5,14 @@ import { Platform, View } from 'react-native';
 
 import { dialog } from '@/components/dialog';
 import { RankBadge } from '@/components/rank-badge';
-import { Button, Card, Chip, Field, IconButton, Row, Screen, Segmented, SheetHeader, Txt } from '@/components/ui';
+import { Button, Card, Chip, Field, IconButton, Loading, Row, Screen, Segmented, SheetHeader, Txt } from '@/components/ui';
 import { C, Space } from '@/constants/theme';
 import { EXERCISE_CATALOG, KIND_LABEL } from '@/lib/catalog';
-import { useAddWorkout, useCreateExercise, useProfile } from '@/lib/data';
+import { useCreateExercise, useDeleteWorkout, useProfile, useSaveWorkout, useWorkouts } from '@/lib/data';
 import { todayKey } from '@/lib/dates';
 import { estimateBurn, estimateRepBurn } from '@/lib/nutrition';
 import { rankExercise, type Rank } from '@/lib/tiers';
-import type { ExerciseKind, WorkoutLog, WorkoutSet } from '@/lib/types';
+import type { ExerciseKind, SetPart, WorkoutLog, WorkoutSet } from '@/lib/types';
 import { useRankedExercises } from '@/lib/use-ranks';
 import { KNEE_FACTOR, nextEasier, partLabel, standardReps, variantById, variantsFor, type Variant } from '@/lib/variants';
 import { sound } from '@/lib/sound';
@@ -21,12 +21,19 @@ type PartDraft = { reps: string; variant: string; knees: boolean };
 type SetDraft = PartDraft & { weight: string; then: PartDraft[] };
 const EMPTY_SET: SetDraft = { reps: '', weight: '', variant: 'standard', knees: false, then: [] };
 
+const partDraft = (p: SetPart): PartDraft => ({ reps: String(p.reps), variant: p.variant ?? 'standard', knees: !!p.knees });
+const setDraft = (s: WorkoutSet): SetDraft => ({ ...partDraft(s), weight: s.weight ? String(s.weight) : '', then: (s.then ?? []).map(partDraft) });
+const numStr = (n: number | null) => (n ? String(n) : '');
+
 export default function LogWorkout() {
-  const params = useLocalSearchParams<{ exerciseId?: string; date?: string }>();
-  const date = params.date ?? todayKey();
+  const params = useLocalSearchParams<{ exerciseId?: string; date?: string; id?: string }>();
   const profile = useProfile().data;
   const { ranked } = useRankedExercises();
-  const addWorkout = useAddWorkout();
+  const workouts = useWorkouts();
+  const existing = workouts.data?.find((w) => w.id === params.id);
+  const date = existing?.log_date ?? params.date ?? todayKey();
+  const saveWorkout = useSaveWorkout();
+  const del = useDeleteWorkout();
 
   const [exerciseId, setExerciseId] = useState<string | undefined>(params.exerciseId);
   const [creating, setCreating] = useState(false);
@@ -38,6 +45,18 @@ export default function LogWorkout() {
   const [calories, setCalories] = useState('');
   const [notes, setNotes] = useState('');
   const [rankUp, setRankUp] = useState<{ before: Rank; after: Rank; name: string } | null>(null);
+
+  // Editing a saved session: prefill once it has loaded.
+  const [prefilledId, setPrefilledId] = useState<string>();
+  if (existing && prefilledId !== existing.id) {
+    setPrefilledId(existing.id);
+    setExerciseId(existing.exercise_id);
+    setSets(existing.sets.length ? existing.sets.map(setDraft) : [EMPTY_SET]);
+    setDuration(numStr(existing.duration_min));
+    setDistance(numStr(existing.distance_km));
+    setCalories(numStr(existing.calories_burned));
+    setNotes(existing.notes ?? '');
+  }
 
   const current = ranked.find((r) => r.exercise.id === exerciseId);
   const kind = current?.exercise.kind;
@@ -98,14 +117,15 @@ export default function LogWorkout() {
     };
 
     try {
-      await addWorkout.mutateAsync(log);
+      await saveWorkout.mutateAsync({ id: existing?.id, ...log });
     } catch (e) {
       return dialog('Could not save', (e as Error).message);
     }
 
     const before = current.rank;
-    const after = rankExercise(current.exercise, [...current.logs, { ...log, id: 'new', created_at: '' } as WorkoutLog], profile?.weight_kg ?? null);
-    const firstEver = current.logs.length === 0;
+    const others = current.logs.filter((w) => w.id !== existing?.id);
+    const after = rankExercise(current.exercise, [...others, { ...log, id: existing?.id ?? 'new', created_at: '' } as WorkoutLog], profile?.weight_kg ?? null);
+    const firstEver = !existing && current.logs.length === 0;
     if (after.score > before.score || firstEver) {
       if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       if (after.score > before.score) sound.rankUp();
@@ -115,6 +135,23 @@ export default function LogWorkout() {
       sound.success();
       router.back();
     }
+  }
+
+  function remove() {
+    if (!existing) return;
+    dialog('Delete this session?', current?.exercise.name, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => del.mutate(existing.id, { onSuccess: () => (sound.remove(), router.back()) }) },
+    ]);
+  }
+
+  if (params.id && !existing) {
+    return workouts.isPending ? <Loading /> : (
+      <Screen>
+        <SheetHeader title="Edit workout" />
+        <Txt color={C.textDim}>This session no longer exists.</Txt>
+      </Screen>
+    );
   }
 
   if (rankUp) {
@@ -137,7 +174,7 @@ export default function LogWorkout() {
 
   return (
     <Screen>
-      <SheetHeader title="Log workout" />
+      <SheetHeader title={existing ? 'Edit workout' : 'Log workout'} />
 
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Space.sm }}>
         {ranked.map((r) => (
@@ -251,7 +288,8 @@ export default function LogWorkout() {
           </Txt>
 
           <Field label="Notes" placeholder="How did it feel?" value={notes} onChangeText={setNotes} />
-          <Button title="Save" color={C.burn} onPress={save} loading={addWorkout.isPending} />
+          <Button title="Save" color={C.burn} onPress={save} loading={saveWorkout.isPending} />
+          {existing ? <Button title="Delete" variant="danger" onPress={remove} loading={del.isPending} /> : null}
           <Button title="Cancel" variant="ghost" onPress={() => router.back()} />
         </Card>
       ) : (

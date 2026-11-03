@@ -81,7 +81,7 @@ export default function Train() {
       {workouts.slice(0, 15).map((w) => {
         const ex = nameOf.get(w.exercise_id);
         return (
-          <Card key={w.id} style={{ padding: Space.md }} onPress={() => ex && router.push({ pathname: '/exercise/[id]', params: { id: ex.id } })}>
+          <Card key={w.id} style={{ padding: Space.md }} onPress={() => router.push({ pathname: '/log-workout', params: { id: w.id } })}>
             <Row style={{ justifyContent: 'space-between' }}>
               <View style={{ flex: 1, gap: 2 }}>
                 <Txt style={{ fontWeight: '700' }}>{ex?.name ?? 'Exercise'}</Txt>
