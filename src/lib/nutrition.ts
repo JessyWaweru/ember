@@ -1,3 +1,4 @@
+import { addDays } from './dates';
 import type { ActivityLevel, GoalType, Sex } from './types';
 
 const ACTIVITY_FACTOR: Record<ActivityLevel, number> = {
@@ -74,4 +75,17 @@ const REP_KCAL_PER_KG: [RegExp, number][] = [
 export function estimateRepBurn(name: string, reps: number, weightKg: number) {
   const perKg = REP_KCAL_PER_KG.find(([re]) => re.test(name))?.[1] ?? 0.005;
   return Math.round(reps * perKg * weightKg);
+}
+
+/**
+ * A day's calorie goal with unused calories rolled over: whatever was left of yesterday's goal is added on top
+ * (1800 goal, ate 1200 → 2400 today; ate 2000 of that → 2200 tomorrow). Going over adds nothing and takes nothing.
+ * Burned calories aren't part of it. A day with nothing logged breaks the chain, so skipped days don't pile up.
+ */
+export function rolledGoal(base: number, eaten: Map<string, number>, date: string): number {
+  let start = date;
+  while (eaten.has(addDays(start, -1))) start = addDays(start, -1);
+  let goal = base;
+  for (let k = start; k < date; k = addDays(k, 1)) goal = base + Math.max(0, goal - eaten.get(k)!);
+  return goal;
 }

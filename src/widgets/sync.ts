@@ -1,9 +1,10 @@
 import { useEffect, useMemo } from 'react';
 import { Platform } from 'react-native';
 
-import { useExercises, useMeals, useProfile, useWorkouts } from '@/lib/data';
+import { useDailyCalories, useExercises, useMeals, useProfile, useWorkouts } from '@/lib/data';
 import { addDays, fromDateKey, todayKey } from '@/lib/dates';
 import { dayStatus, habitStats, isScheduled, logsByDate } from '@/lib/habits';
+import { rolledGoal } from '@/lib/nutrition';
 import { overallRank, rankExercise } from '@/lib/tiers';
 import { useHabitData } from '@/lib/use-habit-data';
 
@@ -40,6 +41,7 @@ export function useWidgetSync() {
   const today = todayKey();
   const profile = useProfile().data;
   const meals = useMeals(today).data;
+  const dailyEaten = useDailyCalories(addDays(today, -400)).data;
   const workouts = useWorkouts().data;
   const exercises = useExercises().data;
   // Same view of habits as the app: auto habits filled in, paused days skipped.
@@ -53,18 +55,24 @@ export function useWidgetSync() {
   );
 
   useEffect(() => {
-    if (!profile || !meals) return;
+    if (!profile || !meals || !dailyEaten) return;
     const sum = (k: 'calories' | 'protein' | 'carbs' | 'fat') => meals.reduce((s, m) => s + m[k], 0);
     const base: CaloriesWidgetProps = {
       eaten: 0, burned: 0, goal: profile.calorie_goal, protein: 0, carbs: 0, fat: 0,
       proteinGoal: profile.protein_goal, carbsGoal: profile.carbs_goal, fatGoal: profile.fat_goal,
     };
+    // Unused calories roll into the next day's goal, so tomorrow's starts from what's left of today's.
+    const eaten = new Map(dailyEaten).set(today, sum('calories'));
     push(
       CaloriesWidget as AnyWidget<CaloriesWidgetProps>,
-      { ...base, eaten: sum('calories'), burned: burnedToday, protein: sum('protein'), carbs: sum('carbs'), fat: sum('fat') },
-      base
+      {
+        ...base,
+        goal: rolledGoal(profile.calorie_goal, eaten, today),
+        eaten: sum('calories'), burned: burnedToday, protein: sum('protein'), carbs: sum('carbs'), fat: sum('fat'),
+      },
+      { ...base, goal: rolledGoal(profile.calorie_goal, eaten, addDays(today, 1)) }
     );
-  }, [profile, meals, burnedToday]);
+  }, [profile, meals, dailyEaten, burnedToday, today]);
 
   useEffect(() => {
     if (!profile || !workouts || !exercises) return;

@@ -1,4 +1,5 @@
 import { addDays, dateRange, todayKey, toDateKey, weekday } from './dates';
+import { rolledGoal } from './nutrition';
 import type { Habit, HabitAuto, HabitLog, HabitPause, HabitSection } from './types';
 
 export const HABIT_COLORS = ['#22C55E', '#A78BFA', '#F472B6', '#38BDF8', '#FACC15', '#FB923C', '#F87171', '#2DD4BF'];
@@ -16,7 +17,7 @@ export const SECTIONS: { value: HabitSection; label: string; emoji: string }[] =
 ];
 
 export const AUTO_OPTIONS: { value: HabitAuto; label: string; detail: string; kind: Habit['kind'] }[] = [
-  { value: 'calorie_cap', label: 'Stay under calories', detail: 'A slip whenever a day goes over your budget (goal + burned).', kind: 'bad' },
+  { value: 'calorie_cap', label: 'Stay under calories', detail: 'A slip whenever a day goes over your budget (goal + unused calories from the day before + burned).', kind: 'bad' },
   { value: 'cardio', label: 'Any cardio workout', detail: 'Done when you log a cardio workout that day.', kind: 'good' },
   { value: 'strength', label: 'Any strength workout', detail: 'Done when you log a weights or bodyweight workout that day.', kind: 'good' },
   { value: 'food_log', label: 'Log your food', detail: 'Done on any day you log at least one meal.', kind: 'good' },
@@ -69,11 +70,15 @@ export function effectiveLogs(habits: Habit[], logs: HabitLog[], pauses: HabitPa
   if (auto) {
     for (const h of habits) {
       if (!h.auto) continue;
+      // The goal with yesterday's leftovers rolled in (see rolledGoal), walked forward a day at a time.
+      let goal = rolledGoal(auto.calorieGoal, auto.eaten, createdKey(h));
       for (const key of dateRange(createdKey(h), today)) {
+        const eaten = auto.eaten.get(key);
+        const dayGoal = goal;
+        goal = auto.calorieGoal + (eaten === undefined ? 0 : Math.max(0, dayGoal - eaten));
         if (out.has(`${h.id}|${key}`)) continue;
         if (h.auto === 'calorie_cap') {
-          const eaten = auto.eaten.get(key);
-          if (eaten !== undefined && eaten > auto.calorieGoal + (auto.burned.get(key) ?? 0)) put(h, key, { count: 1, status: 'failed' });
+          if (eaten !== undefined && eaten > dayGoal + (auto.burned.get(key) ?? 0)) put(h, key, { count: 1, status: 'failed' });
         } else if (h.auto === 'food_log' ? auto.eaten.has(key) : (h.auto === 'cardio' ? auto.cardioDays : auto.strengthDays).has(key)) {
           put(h, key, { count: h.target_count, status: 'done' });
         }

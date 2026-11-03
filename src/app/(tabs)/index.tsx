@@ -9,6 +9,7 @@ import { C, Space } from '@/constants/theme';
 import { useDailyCalories, useMeals, useProfile, useWorkouts } from '@/lib/data';
 import { MEAL_TYPES } from '@/lib/catalog';
 import { addDays, dayStreaks, todayKey } from '@/lib/dates';
+import { rolledGoal } from '@/lib/nutrition';
 
 function MacroRing({ label, value, goal, color }: { label: string; value: number; goal: number; color: string }) {
   const left = Math.round(goal - value);
@@ -47,7 +48,10 @@ export default function Today() {
 
   const eaten = meals.reduce((s, m) => s + m.calories, 0);
   const burned = workouts.filter((w) => w.log_date === date).reduce((s, w) => s + w.calories_burned, 0);
-  const budget = profile.calorie_goal + burned;
+  // Yesterday's unused calories carry into today's goal; exercise is kept out of that math.
+  const goal = dailyEaten ? rolledGoal(profile.calorie_goal, dailyEaten, date) : profile.calorie_goal;
+  const carried = goal - profile.calorie_goal;
+  const budget = goal + burned;
   const left = budget - eaten;
   const macro = (k: 'protein' | 'carbs' | 'fat') => meals.reduce((s, m) => s + m[k], 0);
 
@@ -83,8 +87,8 @@ export default function Today() {
               <Txt variant="caption" color={C.textDim}>burned</Txt>
             </View>
             <View>
-              <Txt variant="label">{profile.calorie_goal}</Txt>
-              <Txt variant="caption" color={C.textDim}>goal</Txt>
+              <Txt variant="label">{goal}</Txt>
+              <Txt variant="caption" color={C.textDim}>{carried ? `goal · +${carried} carried` : 'goal'}</Txt>
             </View>
           </Row>
         </View>
@@ -122,7 +126,7 @@ export default function Today() {
       })}
 
       <Button title="Log food" onPress={() => router.push({ pathname: '/add-meal', params: { date } })} />
-      <Txt variant="caption" color={C.textFaint} style={{ textAlign: 'center' }}>Tap an entry to delete it.</Txt>
+      <Txt variant="caption" color={C.textFaint} style={{ textAlign: 'center' }}>Tap an entry to edit it, hold to delete.</Txt>
     </Screen>
   );
 }
