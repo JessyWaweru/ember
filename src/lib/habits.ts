@@ -1,5 +1,5 @@
 import { addDays, dateRange, todayKey, toDateKey, weekday } from './dates';
-import { nextGoal, rolledGoal } from './nutrition';
+import { goalFor, nextCarry, rolledCarry } from './nutrition';
 import type { Habit, HabitAuto, HabitLog, HabitPause, HabitSection } from './types';
 
 export const HABIT_COLORS = ['#22C55E', '#A78BFA', '#F472B6', '#38BDF8', '#FACC15', '#FB923C', '#F87171', '#2DD4BF'];
@@ -70,10 +70,10 @@ export function effectiveLogs(habits: Habit[], logs: HabitLog[], pauses: HabitPa
   if (auto) {
     for (const h of habits) {
       if (!h.auto) continue;
-      // The goal with the day before rolled in (see nextGoal), walked forward a day at a time.
-      let goal = rolledGoal(auto.calorieGoal, auto.eaten, createdKey(h));
-      // Over-budget days not made up for yet. A later finished day on budget pays them back; a day with nothing
-      // logged ends the run and they stay slips.
+      // Calories carried day to day (see nextCarry), walked forward a day at a time.
+      let carry = rolledCarry(auto.calorieGoal, auto.eaten, createdKey(h));
+      // Over-budget days not made up for yet. They clear once a later finished day is on budget with nothing left
+      // owed; a day with nothing logged ends the run and they stay slips.
       let slips: string[] = [];
       const settle = (recovered: boolean) => {
         for (const k of slips) {
@@ -83,12 +83,12 @@ export function effectiveLogs(habits: Habit[], logs: HabitLog[], pauses: HabitPa
       };
       for (const key of dateRange(createdKey(h), today)) {
         const eaten = auto.eaten.get(key);
-        const dayGoal = goal;
-        goal = eaten === undefined ? auto.calorieGoal : nextGoal(auto.calorieGoal, dayGoal, eaten);
+        const dayGoal = goalFor(auto.calorieGoal, carry);
+        carry = eaten === undefined ? 0 : nextCarry(auto.calorieGoal, carry, eaten);
         if (h.auto === 'calorie_cap') {
           if (eaten === undefined) settle(false);
           else if (eaten > dayGoal + (auto.burned.get(key) ?? 0)) slips.push(key);
-          else if (key < today) settle(true);
+          else if (key < today && carry >= 0) settle(true);
           continue;
         }
         if (out.has(`${h.id}|${key}`)) continue;

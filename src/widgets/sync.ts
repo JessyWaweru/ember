@@ -4,7 +4,7 @@ import { Platform } from 'react-native';
 import { useDailyCalories, useExercises, useMeals, useProfile, useWorkouts } from '@/lib/data';
 import { addDays, fromDateKey, todayKey } from '@/lib/dates';
 import { dayStatus, habitStats, isScheduled, logsByDate } from '@/lib/habits';
-import { rolledGoal } from '@/lib/nutrition';
+import { goalFor, rolledCarry } from '@/lib/nutrition';
 import { overallRank, rankExercise } from '@/lib/tiers';
 import { useHabitData } from '@/lib/use-habit-data';
 
@@ -67,10 +67,10 @@ export function useWidgetSync() {
       CaloriesWidget as AnyWidget<CaloriesWidgetProps>,
       {
         ...base,
-        goal: rolledGoal(profile.calorie_goal, eaten, today),
+        goal: goalFor(profile.calorie_goal, rolledCarry(profile.calorie_goal, eaten, today)),
         eaten: sum('calories'), burned: burnedToday, protein: sum('protein'), carbs: sum('carbs'), fat: sum('fat'),
       },
-      { ...base, goal: rolledGoal(profile.calorie_goal, eaten, addDays(today, 1)) }
+      { ...base, goal: goalFor(profile.calorie_goal, rolledCarry(profile.calorie_goal, eaten, addDays(today, 1))) }
     );
   }, [profile, meals, dailyEaten, burnedToday, today]);
 

@@ -82,22 +82,27 @@ export const OVER_GRACE = 200;
 /** Going over never pushes a day's goal below this (or below your base goal, if that's lower). */
 export const GOAL_FLOOR = 800;
 
+/** A day's goal from the calories carried into it: base plus the carry, held at GOAL_FLOOR (or base, if lower). */
+export const goalFor = (base: number, carry: number) => Math.max(Math.min(GOAL_FLOOR, base), base + carry);
+
 /**
- * The next day's goal after eating `eaten` against `dayGoal`: what's left over is added on top
- * (1800 goal, ate 1200 → 2400); going over takes the excess minus OVER_GRACE off (500 over → 1500), down to
- * GOAL_FLOOR at most. Burned calories aren't part of it.
+ * The carry into the next day after eating `eaten` on a day that started with `carry` (+ left over, − owed).
+ * Under: what's left adds on (1800 goal, ate 1200 → +600 → 2400), but first pays off anything the floor held back.
+ * Over: the excess minus OVER_GRACE is owed (500 over → −300 → 1500) on top of anything still owed.
+ * So a big overshoot keeps the goal at the floor until it's paid off. Burned calories aren't part of it.
  */
-export function nextGoal(base: number, dayGoal: number, eaten: number): number {
-  const left = dayGoal - eaten;
-  if (left >= 0) return base + left;
-  return Math.max(Math.min(GOAL_FLOOR, base), base + Math.min(0, left + OVER_GRACE));
+export function nextCarry(base: number, carry: number, eaten: number): number {
+  const goal = goalFor(base, carry);
+  const heldBack = goal - (base + carry); // owed but not taken off yet because of the floor
+  const left = goal - eaten;
+  return (left >= 0 ? left : Math.min(0, left + OVER_GRACE)) - heldBack;
 }
 
-/** A day's calorie goal with the day before rolled in (see nextGoal). A day with nothing logged breaks the chain. */
-export function rolledGoal(base: number, eaten: Map<string, number>, date: string): number {
+/** Calories carried into `date` (see nextCarry). A day with nothing logged breaks the chain and clears it. */
+export function rolledCarry(base: number, eaten: Map<string, number>, date: string): number {
   let start = date;
   while (eaten.has(addDays(start, -1))) start = addDays(start, -1);
-  let goal = base;
-  for (let k = start; k < date; k = addDays(k, 1)) goal = nextGoal(base, goal, eaten.get(k)!);
-  return goal;
+  let carry = 0;
+  for (let k = start; k < date; k = addDays(k, 1)) carry = nextCarry(base, carry, eaten.get(k)!);
+  return carry;
 }

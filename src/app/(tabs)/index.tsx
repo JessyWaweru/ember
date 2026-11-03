@@ -9,7 +9,7 @@ import { C, Space } from '@/constants/theme';
 import { useDailyCalories, useMeals, useProfile, useWorkouts } from '@/lib/data';
 import { MEAL_TYPES } from '@/lib/catalog';
 import { addDays, dayStreaks, todayKey } from '@/lib/dates';
-import { rolledGoal } from '@/lib/nutrition';
+import { goalFor, rolledCarry } from '@/lib/nutrition';
 
 function MacroRing({ label, value, goal, color }: { label: string; value: number; goal: number; color: string }) {
   const left = Math.round(goal - value);
@@ -49,8 +49,8 @@ export default function Today() {
   const eaten = meals.reduce((s, m) => s + m.calories, 0);
   const burned = workouts.filter((w) => w.log_date === date).reduce((s, w) => s + w.calories_burned, 0);
   // Yesterday's leftovers (or overshoot, past a 200 kcal grace) carry into today's goal; exercise stays out of it.
-  const goal = dailyEaten ? rolledGoal(profile.calorie_goal, dailyEaten, date) : profile.calorie_goal;
-  const carried = goal - profile.calorie_goal;
+  const carried = dailyEaten ? rolledCarry(profile.calorie_goal, dailyEaten, date) : 0;
+  const goal = goalFor(profile.calorie_goal, carried);
   const budget = goal + burned;
   const left = budget - eaten;
   const macro = (k: 'protein' | 'carbs' | 'fat') => meals.reduce((s, m) => s + m[k], 0);
