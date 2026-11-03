@@ -48,7 +48,7 @@ export default function Today() {
 
   const eaten = meals.reduce((s, m) => s + m.calories, 0);
   const burned = workouts.filter((w) => w.log_date === date).reduce((s, w) => s + w.calories_burned, 0);
-  // Yesterday's unused calories carry into today's goal; exercise is kept out of that math.
+  // Yesterday's leftovers (or overshoot, past a 200 kcal grace) carry into today's goal; exercise stays out of it.
   const goal = dailyEaten ? rolledGoal(profile.calorie_goal, dailyEaten, date) : profile.calorie_goal;
   const carried = goal - profile.calorie_goal;
   const budget = goal + burned;
@@ -89,7 +89,11 @@ export default function Today() {
             <View>
               <Txt variant="label">{goal}</Txt>
               <Txt variant="caption" color={C.textDim}>goal</Txt>
-              {carried ? <Txt variant="caption" color={C.accent} style={{ fontSize: 11 }}>{`+${carried} carried`}</Txt> : null}
+              {carried ? (
+                <Txt variant="caption" color={carried > 0 ? C.accent : C.danger} style={{ fontSize: 11 }}>
+                  {`${carried > 0 ? '+' : '−'}${Math.abs(carried)} carried`}
+                </Txt>
+              ) : null}
             </View>
           </Row>
         </View>

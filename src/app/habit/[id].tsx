@@ -3,7 +3,7 @@ import { useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, View, type ScrollViewInstance } from 'react-native';
 
 import { dialog } from '@/components/dialog';
-import { isBlank, statusColor } from '@/components/habit-card';
+import { calorieCapDialog, isBlank, statusColor } from '@/components/habit-card';
 import { Button, Card, IconButton, Loading, Row, Screen, SectionHeader, Txt } from '@/components/ui';
 import { C, Space } from '@/constants/theme';
 import { pauseSpan } from '@/components/pause-banner';
@@ -40,8 +40,9 @@ function MonthCalendar({ habit, logs }: { habit: Habit; logs: Map<string, HabitL
     if (key > today) return;
     const pause = logs.get(key)?.pause;
     if (pause) return dialog('Paused', `${pause.reason} · ${pauseSpan(pause)}`);
-    if (habit.auto) return dialog(habit.name, `Tracked automatically (${autoLabel(habit.auto).toLowerCase()}).`);
     const s = dayStatus(habit, logs.get(key), key);
+    if (habit.auto === 'calorie_cap') return calorieCapDialog(habit, logs.get(key), s, key, setLog);
+    if (habit.auto) return dialog(habit.name, `Tracked automatically (${autoLabel(habit.auto).toLowerCase()}).`);
     const base = { habit_id: habit.id, log_date: key };
     if (habit.kind === 'bad') {
       if (s === 'failed') sound.undo();

@@ -1,5 +1,5 @@
 import { addDays, dateRange, todayKey, toDateKey, weekday } from './dates';
-import { rolledGoal } from './nutrition';
+import { nextGoal, rolledGoal } from './nutrition';
 import type { Habit, HabitAuto, HabitLog, HabitPause, HabitSection } from './types';
 
 export const HABIT_COLORS = ['#22C55E', '#A78BFA', '#F472B6', '#38BDF8', '#FACC15', '#FB923C', '#F87171', '#2DD4BF'];
@@ -17,7 +17,7 @@ export const SECTIONS: { value: HabitSection; label: string; emoji: string }[] =
 ];
 
 export const AUTO_OPTIONS: { value: HabitAuto; label: string; detail: string; kind: Habit['kind'] }[] = [
-  { value: 'calorie_cap', label: 'Stay under calories', detail: 'A slip whenever a day goes over your budget (goal + unused calories from the day before + burned).', kind: 'bad' },
+  { value: 'calorie_cap', label: 'Stay under calories', detail: 'A slip whenever a day goes over its budget (goal, adjusted by the day before, + burned). Cleared once a later day comes in on budget.', kind: 'bad' },
   { value: 'cardio', label: 'Any cardio workout', detail: 'Done when you log a cardio workout that day.', kind: 'good' },
   { value: 'strength', label: 'Any strength workout', detail: 'Done when you log a weights or bodyweight workout that day.', kind: 'good' },
   { value: 'food_log', label: 'Log your food', detail: 'Done on any day you log at least one meal.', kind: 'good' },
@@ -70,19 +70,33 @@ export function effectiveLogs(habits: Habit[], logs: HabitLog[], pauses: HabitPa
   if (auto) {
     for (const h of habits) {
       if (!h.auto) continue;
-      // The goal with yesterday's leftovers rolled in (see rolledGoal), walked forward a day at a time.
+      // The goal with the day before rolled in (see nextGoal), walked forward a day at a time.
       let goal = rolledGoal(auto.calorieGoal, auto.eaten, createdKey(h));
+      // Over-budget days not made up for yet. A later finished day on budget pays them back; a day with nothing
+      // logged ends the run and they stay slips.
+      let slips: string[] = [];
+      const settle = (recovered: boolean) => {
+        for (const k of slips) {
+          if (!out.has(`${h.id}|${k}`)) put(h, k, recovered ? { count: 1, status: 'done', recovered } : { count: 1, status: 'failed' });
+        }
+        slips = [];
+      };
       for (const key of dateRange(createdKey(h), today)) {
         const eaten = auto.eaten.get(key);
         const dayGoal = goal;
-        goal = auto.calorieGoal + (eaten === undefined ? 0 : Math.max(0, dayGoal - eaten));
-        if (out.has(`${h.id}|${key}`)) continue;
+        goal = eaten === undefined ? auto.calorieGoal : nextGoal(auto.calorieGoal, dayGoal, eaten);
         if (h.auto === 'calorie_cap') {
-          if (eaten !== undefined && eaten > dayGoal + (auto.burned.get(key) ?? 0)) put(h, key, { count: 1, status: 'failed' });
-        } else if (h.auto === 'food_log' ? auto.eaten.has(key) : (h.auto === 'cardio' ? auto.cardioDays : auto.strengthDays).has(key)) {
+          if (eaten === undefined) settle(false);
+          else if (eaten > dayGoal + (auto.burned.get(key) ?? 0)) slips.push(key);
+          else if (key < today) settle(true);
+          continue;
+        }
+        if (out.has(`${h.id}|${key}`)) continue;
+        if (h.auto === 'food_log' ? auto.eaten.has(key) : (h.auto === 'cardio' ? auto.cardioDays : auto.strengthDays).has(key)) {
           put(h, key, { count: h.target_count, status: 'done' });
         }
       }
+      settle(false);
     }
   }
 

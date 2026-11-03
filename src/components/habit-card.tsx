@@ -17,6 +17,41 @@ export function statusColor(status: DayStatus, color: string) {
 }
 export const isBlank = (status: DayStatus) => status !== 'done';
 
+type SetLog = ReturnType<typeof useSetHabitLog>;
+
+/**
+ * Tapping the calorie habit on a day. Slips clear themselves once a later day is on budget, but you can also mark a
+ * day clean yourself (your own log beats the automatic one) and hand it back to the automatic check later.
+ */
+export function calorieCapDialog(habit: Habit, log: HabitLog | undefined, status: DayStatus, date: string, setLog: SetLog) {
+  const base = { habit_id: habit.id, log_date: date };
+  const own = !!log && !log.id.startsWith('auto-');
+  const day = prettyDay(date);
+  const auto = { text: 'Back to automatic', onPress: () => (sound.undo(), setLog.mutate({ ...base, clear: true })) };
+  if (own && log.status === 'done') {
+    return dialog(habit.name, `You marked ${day} as clean.`, [{ text: 'Keep', style: 'cancel' }, auto]);
+  }
+  if (own && status === 'failed') {
+    return dialog(habit.name, `You logged a slip on ${day}.`, [{ text: 'Keep', style: 'cancel' }, { ...auto, text: 'Undo slip' }]);
+  }
+  if (status === 'failed') {
+    return dialog(
+      habit.name,
+      `Over budget on ${day}. This clears itself once a later day comes in on budget, or you can mark it clean now.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Mark as clean', onPress: () => (sound.complete(), setLog.mutate({ ...base, count: 1, status: 'done' })) },
+      ]
+    );
+  }
+  dialog(
+    habit.name,
+    log?.recovered
+      ? `${day} went over budget, but a later day on budget made up for it.`
+      : 'Tracked from your food log: a day over its budget (goal, adjusted by the day before, + burned) is a slip until a later day comes in on budget.'
+  );
+}
+
 export function HabitCard({ habit, logs, date }: { habit: Habit; logs: Map<string, HabitLog>; date: string }) {
   const setLog = useSetHabitLog();
   const log = logs.get(date);
@@ -34,7 +69,7 @@ export function HabitCard({ habit, logs, date }: { habit: Habit; logs: Map<strin
     // Auto habits are ticked by what you log; a manual skip can still be undone.
     if (habit.auto && status !== 'skipped') {
       return habit.auto === 'calorie_cap'
-        ? dialog(habit.name, 'Tracked from your food log: a day over your calorie budget (goal + burned) counts as a slip.')
+        ? calorieCapDialog(habit, log, status, date, setLog)
         : dialog(habit.name, `Ticks itself off when you log ${habit.auto === 'cardio' ? 'a cardio' : 'a weights or bodyweight'} workout.`, [
             { text: 'Not now', style: 'cancel' },
             { text: 'Log workout', onPress: () => router.push({ pathname: '/log-workout', params: { date } }) },

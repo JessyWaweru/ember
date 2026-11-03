@@ -61,7 +61,7 @@ export function useWidgetSync() {
       eaten: 0, burned: 0, goal: profile.calorie_goal, protein: 0, carbs: 0, fat: 0,
       proteinGoal: profile.protein_goal, carbsGoal: profile.carbs_goal, fatGoal: profile.fat_goal,
     };
-    // Unused calories roll into the next day's goal, so tomorrow's starts from what's left of today's.
+    // Today's leftovers (or overshoot) roll into tomorrow's goal, so tomorrow's starts from how today went.
     const eaten = new Map(dailyEaten).set(today, sum('calories'));
     push(
       CaloriesWidget as AnyWidget<CaloriesWidgetProps>,

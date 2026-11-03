@@ -79,8 +79,19 @@ export type HabitAuto = 'calorie_cap' | 'cardio' | 'strength' | 'food_log';
 export type HabitKind = 'good' | 'bad';
 export type HabitSection = 'morning' | 'afternoon' | 'evening' | 'anytime';
 export type HabitLogStatus = 'done' | 'skipped' | 'failed';
-/** `pause` is set on days a pause covers (status 'skipped'); it's derived, never stored. */
-export type HabitLog = { id: string; habit_id: string; log_date: string; count: number; status: HabitLogStatus; pause?: HabitPause };
+/**
+ * Derived, never stored: `pause` is set on days a pause covers (status 'skipped'); `recovered` on a calorie slip
+ * that later days on budget made up for (status 'done').
+ */
+export type HabitLog = {
+  id: string;
+  habit_id: string;
+  log_date: string;
+  count: number;
+  status: HabitLogStatus;
+  pause?: HabitPause;
+  recovered?: boolean;
+};
 
 /** A break from some (habit_id) or all (null) habits, from start_date to end_date inclusive (null = until resumed). */
 export type HabitPause = { id: string; habit_id: string | null; start_date: string; end_date: string | null; reason: string; created_at: string };

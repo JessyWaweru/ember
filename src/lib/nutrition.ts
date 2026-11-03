@@ -77,15 +77,24 @@ export function estimateRepBurn(name: string, reps: number, weightKg: number) {
   return Math.round(reps * perKg * weightKg);
 }
 
+/** Calories you can go over before the next day pays for it. */
+export const OVER_GRACE = 200;
+
 /**
- * A day's calorie goal with unused calories rolled over: whatever was left of yesterday's goal is added on top
- * (1800 goal, ate 1200 → 2400 today; ate 2000 of that → 2200 tomorrow). Going over adds nothing and takes nothing.
- * Burned calories aren't part of it. A day with nothing logged breaks the chain, so skipped days don't pile up.
+ * The next day's goal after eating `eaten` against `dayGoal`: what's left over is added on top
+ * (1800 goal, ate 1200 → 2400); going over takes the excess minus OVER_GRACE off (500 over → 1500).
+ * Burned calories aren't part of it.
  */
+export function nextGoal(base: number, dayGoal: number, eaten: number): number {
+  const left = dayGoal - eaten;
+  return base + (left >= 0 ? left : Math.min(0, left + OVER_GRACE));
+}
+
+/** A day's calorie goal with the day before rolled in (see nextGoal). A day with nothing logged breaks the chain. */
 export function rolledGoal(base: number, eaten: Map<string, number>, date: string): number {
   let start = date;
   while (eaten.has(addDays(start, -1))) start = addDays(start, -1);
   let goal = base;
-  for (let k = start; k < date; k = addDays(k, 1)) goal = base + Math.max(0, goal - eaten.get(k)!);
+  for (let k = start; k < date; k = addDays(k, 1)) goal = nextGoal(base, goal, eaten.get(k)!);
   return goal;
 }
