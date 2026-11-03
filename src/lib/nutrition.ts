@@ -80,7 +80,7 @@ export function estimateRepBurn(name: string, reps: number, weightKg: number) {
 /** Calories you can go over before the next day pays for it. */
 export const OVER_GRACE = 200;
 /** Going over never pushes a day's goal below this (or below your base goal, if that's lower). */
-export const GOAL_FLOOR = 1100;
+export const GOAL_FLOOR = 800;
 
 /**
  * The next day's goal after eating `eaten` against `dayGoal`: what's left over is added on top
